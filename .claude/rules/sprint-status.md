@@ -1,17 +1,81 @@
-# Sprint Status — ณ 11 มิ.ย. 2569
+# Sprint Status — ณ 22 มิ.ย. 2569
 
-## 🔧 Phase UX Refactor + Bug Fix + Important Features — กำลังทำ (3 branch ขนาน บน `to-serve`)
+> ⚠️ **เปลี่ยนโหมดทีม → ผู้พัฒนาคนเดียว:** จากนี้พัฒนา TPSS ต่อ **คนเดียว** — เลิก branch ขนาน/merge order แบบทีม ทำ sequential ทีละโมดูล (โค้ด+test+docs จบในงานเดียว) · roadmap ดูหัวข้อ "Solo Roadmap (TPSS เท่านั้น)" ด้านล่าง
+
+## 🔧 Phase UX Refactor + Bug Fix + Important Features — ✅ เสร็จครบ · merged เข้า `to-serve` ทั้ง 3 branch
 
 > เอกสารต้นทาง: `อัพเดต_แก้บัค (2).pdf` (20 ข้อ · ข้ามข้อ 4) · แผนแบ่งงาน: `Doc/requirement/phase_ux_work_split.html`
 > แตก 3 branch จาก `to-serve` — แบ่งตาม **โซนไฟล์** กัน conflict (10/20 ข้อแตะ `shared/schedules/index.blade.php` + `ScheduleController`)
 
 | Branch | คน | ขอบเขต | สถานะ |
 |--------|----|--------|-------|
-| `feat/phase-ux-a-schedule-modal` | A | modal กรอก/แก้ slot + series/copy + ชุดผู้สอน (ข้อ 2,10,11,12,13,19,20,6a) | 🟡 กำลังทำ (push `a6da942`) |
+| `feat/phase-ux-a-schedule-modal` | A | modal กรอก/แก้ slot + series/copy + ชุดผู้สอน (ข้อ 2,10,11,12,13,19,20,6a) | ✅ **merged เข้า `to-serve`** |
 | `feat/phase-ux-b-schedule-calendar` | B | ปฏิทิน/การ์ด/ตัวกรอง/ตัวนับ (ข้อ 14,15,16,17,18,21) | ✅ **merged เข้า `to-serve`** (`aaf9a13`) |
-| `feat/phase-ux-c-platform` | C | security/audit + settings + master data + test gate | ✅ **เสร็จครบ** (`304429e`) |
+| `feat/phase-ux-c-platform` | C | security/audit + settings + master data + test gate | ✅ **merged เข้า `to-serve`** (`304429e`) |
 
-**Merge order:** C → B → A · ทุกคน `--force-with-lease` บน branch ตัวเอง · A ต้อง rebase `origin/to-serve` หลัง B merged (แชร์ไฟล์ร้อน)
+**Merge order (ทำเสร็จแล้ว):** C → B → A — verify ด้วย `git merge-base --is-ancestor origin/feat/phase-ux-a-schedule-modal to-serve` (ทั้ง 3 เป็น ancestor ของ `to-serve` แล้ว)
+
+## 🎨 UI Redesign Pass — 🟡 กำลังทำ (3 branch แตกจาก `to-serve` · ยังไม่ merge)
+
+> งาน redesign หน้าจอให้เข้า Impeccable Design รอบใหม่ — ทำต่อบน `to-serve`
+
+| Branch | ขอบเขต | สถานะ |
+|--------|--------|-------|
+| `feat/redesign-dashboard` | dashboard เป็นโซน (hero/การ์ดต้องทำ/ภาพรวม+กราฟ/ติดตามงาน) | 🟡 admin เสร็จ 5 commits · **role อื่นยังไม่ทำ** · ยังไม่ merge |
+| `feat/redesign-master-data` | redesign หน้า Master Data | 🟡 ยังไม่ merge เข้า `to-serve` |
+| `feat/redesign-settings` | redesign หน้า Settings | 🟡 ยังไม่ merge เข้า `to-serve` |
+
+## 🧭 Solo Roadmap (TPSS เท่านั้น · ไม่รวม PA/QA)
+
+> ทำคนเดียว sequential · base จาก `to-serve` · ไม่ตัดงาน — ลิสต์ครบทุกส่วนพร้อมวัน
+> ประมาณการเป็น **วันทำงาน** สำหรับ dev ที่รู้ codebase แล้ว (รวม test + docs ในงาน)
+> ✅ **Stabilize + merge เสร็จแล้ว** (~22 มิ.ย. — `main` มีงานครบ) · **redesign พักไว้ทำทีหลัง** → เริ่มเฟส 2 ได้เลย
+
+### Phase 1 — งานปิด (เหลือเฉพาะ optional/พักไว้)
+| งาน | วัน | สถานะ |
+|-----|----|-------|
+| ~~Stabilize + merge `to-serve`→`main`~~ | ~~2~~ | ✅ เสร็จแล้ว |
+| จบ redesign 3 หน้า (dashboard role อื่น + master-data + settings) | 5–7 | ⏸️ พักไว้ ทำหลังเฟส 2 |
+| `rooms.campus` (optional) | 1 | ⏸️ ไม่อยู่ V3 |
+
+### Phase 2 — โมดูลใหม่ (เริ่มได้เลย · base `to-serve`)
+| ลำดับ | Module | งาน | วัน | ขึ้นกับ |
+|------|--------|-----|----|--------|
+| 4 | **M11** | Approval — ส่ง/อนุมัติ/reject+comment/lock/revised + log | **3** | table พร้อม · flow มีบางส่วน |
+| 5 | ⭐ **M6** | Workload จาก schedule จริง — แยกคน/วิชา/ระดับ/ประเภท + กราฟ + Excel | **5** | ฐานของ PA · ตัดไม่ได้ |
+| 6 | **M9** | Report PDF/Excel — ตารางวิชา/กลุ่ม/อาจารย์/ห้อง + filter | **5** | schedule + M6 · priority สูงสุดลูกค้า |
+| 7 | **M5** | Smart Warning — ภาระงานเกิน/ต่ำเกณฑ์ + วิชายังไม่จัดตาราง | **2** | M6 |
+| 8 | **M8+** | Publish Views ตาม role (อาจารย์/นักศึกษา/เจ้าหน้าที่ เห็นเฉพาะ published) | **3** | M11 |
+| 9 | **Rotation** | `rotation_rounds`/`assignments` ปี 3-4 (4 รอบ/ปี + สลับข้ามเทอม) + workload per-round | **8–10** | M6 · ก้อนใหญ่สุด |
+| | | **รวม Phase 2** | **~26–28** | |
+
+### Test + UAT + buffer: **~3 วัน**
+
+### สรุปเวลา TPSS ที่เหลือ (คนเดียว · Stabilize เสร็จแล้ว)
+- Phase 2 ~26–28 + UAT/buffer ~3 = **~29–31 วันทำงาน** (+ redesign 5–7 ถ้ากลับมาทำ)
+- **1 เดือนแรก (~20 วัน):** M11 → **M6 → M9** → M5 (= 15 วัน + buffer) — แกนหลักที่ต้องได้
+- **เดือนถัดไป:** Publish Views + Rotation (+ redesign)
+
+> ลำดับเหตุผล: **M6 มาก่อน M9** เพราะเป็นฐานของทั้ง report และ PA actual (โมดูล PA/QA อนาคต)
+> 🚩 **เริ่มงานถัดไป = M11 Approval บน `to-serve`**
+
+### 📅 ตารางเฟส 2 แกนหลัก (รวมทดสอบ+แก้บั๊ก) — เริ่ม จ. 22 มิ.ย. 2569 (วันทำงาน จ.–ศ.)
+> ⚠️ สลับลำดับจาก PDF: **M6 ก่อน M5** เพราะ M5 (warning ภาระงานเกิน/ต่ำเกณฑ์) ต้องใช้ตัวเลข workload จาก M6
+> ทดสอบ 2 ชั้น: ท้ายแต่ละโมดูล (manual test + แก้ข้อบกพร่อง 1 วัน · คนละส่วนกับ unit test ที่รวมในวัน dev) + ทดสอบบูรณาการรวมตอนจบ
+
+| งาน | วัน | ช่วงวันที่ |
+|-----|----|-----------|
+| **M11 Approval** dev — Task17 (M11-01,06) + Task18 (M11-02,03,04,05) | 3 | จ.22–พ.24 มิ.ย. |
+| ทดสอบโมดูลและแก้ไขข้อบกพร่อง (Module Testing & Bug Fix) | 1 | พฤ.25 มิ.ย. |
+| **M6 Workload** dev — Task23 (M6-01,02) + Task24 (M6-03,04,05) | 5 | ศ.26 · จ.29 · อ.30 มิ.ย. · พ.1 · พฤ.2 ก.ค. |
+| ทดสอบโมดูลและแก้ไขข้อบกพร่อง (Module Testing & Bug Fix) | 1 | ศ.3 ก.ค. |
+| **M9 Report** dev — Task25 (M9-01,02) + Task26 (M9-03,04,05) | 5 | จ.6–ศ.10 ก.ค. |
+| ทดสอบโมดูลและแก้ไขข้อบกพร่อง (Module Testing & Bug Fix) | 1 | จ.13 ก.ค. |
+| **M5 Warning** dev — Task21 (M5-01,02) + Task22 (M5-03..06) | 2 | อ.14–พ.15 ก.ค. |
+| ทดสอบโมดูลและแก้ไขข้อบกพร่อง (Module Testing & Bug Fix) | 1 | พฤ.16 ก.ค. |
+| **ทดสอบบูรณาการระบบและแก้ไขข้อบกพร่อง (Integration Testing & Bug Fix)** | 2 | ศ.17 · จ.20 ก.ค. |
+
+**รวม 21 วันทำงาน → เสร็จแกนหลัก จ. 20 ก.ค. 2569** (Publish Views + Rotation = เดือนถัดไป)
 
 ### ✅ Branch C — เสร็จครบทุกข้อ + PHPUnit 564/564 เขียว (`feat/phase-ux-c-platform`)
 - **8.1** force logout บัญชีถูกปิด (CheckActiveUser + 401 JSON สำหรับ AJAX) · **8.2** กัน role แปลกปลอม (`UserRole::VALID_ROLES` กรองที่ `normalizeRoles` คุม store/update/CSV) · **8.3** audit สลับบทบาท (`switchRole`) · **8.4** audit holiday CRUD/sync + ปิด alert · **8.5** mask รหัสผ่าน/token ลึกทุกชั้น (`AuditLogger::maskRecursive`)
@@ -486,15 +550,14 @@ Controller logic + modal form (commit msg เดิม "แก้บัคยั
 ## Git Branching
 
 ```
-main ← production-ready
-  └── sprint ← integration เดิม (Sprint 1-7 + Schedule Suite + V2 master-data cleanup)
-        ├── feature/admin-dashboard-alerts / 7-m7 / 3-m2 / fix/* ... ✅ merge ครบแล้ว
-        └── feat/v2-requirement              ✅ V2/V3 Master Data Cleanup
-  └── to-serve ← integration ปัจจุบัน (ต่อจาก sprint · ใช้ทำ V4 + เตรียม demo/serve)
-        ├── feat/v4-master-data        (Branch B) ✅ merge — V4 ข้อ 1,4 + cohort parent_id
-        ├── feat/v4-rbac-pa-ops        (Branch C) ✅ merge — V4 ข้อ 3,5,6
-        ├── feat/v4-schedule-groups    (Branch A) ✅ merge — V4 ข้อ 2,7
-        ├── (UX lecturer/dashboard ของเพื่อน)      ✅ merge
-        └── (external dev skills .claude/skills)   ✅ chore
+main ← production-ready  ✅ มี V4/V2/PhaseUX ครบแล้ว (merge to-serve กลับ main เรียบร้อย ~22 มิ.ย.)
+  │                        ตามหลัง to-serve แค่ 1 commit (8d5d37b Thai date) — sync กันแล้ว
+  └── sprint ← integration เดิม (ทิ้งไว้ · ตามหลัง to-serve 276 commits · ไม่ใช้ต่อ)
+  └── to-serve ← ⭐ working base ปัจจุบัน — งานเฟส 2 ทำต่อบนนี้ แล้ว merge กลับ main เป็นระยะ
+        ├── V4 (master-data / rbac-pa-ops / schedule-groups)  ✅ in main
+        ├── feat/phase-ux-a/b/c   ✅ Phase UX Refactor + Bug Fix (20 ข้อ)  ✅ in main
+        └── (redesign branches แยกไว้ พักก่อน — ดู 🎨 UI Redesign Pass)
 ```
-> ⚠️ งาน V4 ทั้งหมดอยู่บน `to-serve` (ยังไม่ได้ merge กลับ `sprint`/`main`) — ทำงานต่อให้ base จาก `to-serve`
+> ✅ **หนี้ integration เคลียร์แล้ว** — `main` มีงานครบ (debt 616 commits หายแล้ว) · `sprint` ถูกทิ้ง
+> ⭐ **กฎต่อจากนี้:** ทำเฟส 2 บน `to-serve` → test เขียว → merge กลับ `main` เป็นระยะ (ไม่ปล่อยห่างอีก)
+> 🎨 **redesign 3 branch พักไว้** (`redesign-dashboard/master-data/settings`) — ทำเฟส 2 ก่อน ค่อยกลับมาทำ redesign ทีหลัง
