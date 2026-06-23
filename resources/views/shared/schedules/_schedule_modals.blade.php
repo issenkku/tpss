@@ -491,6 +491,7 @@
                             data-schedule-success-toast="บันทึกสำเร็จ"
                             data-schedule-check
                             data-check-url="{{ route('maker.course_offerings.schedules.check_conflicts', $offering, false) }}"
+                            @submit="beginScheduleSubmit()"
                             @input="queueScheduleCheck($el)"
                             @change="queueScheduleCheck($el)"
                             x-data="{

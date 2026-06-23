@@ -6209,6 +6209,15 @@
                 if (this.liveTimer) clearTimeout(this.liveTimer);
                 this.liveTimer = setTimeout(() => this.runScheduleCheck(form), 400);
             },
+            // ตอนกดบันทึก: หยุด live check ไม่ให้ยิงตามหลัง POST — มิฉะนั้นจะเห็น record ที่เพิ่งสร้าง
+            // เป็นการชนกับตัวเอง (ไม่มี schedule_id ให้ ignore) แล้ว flash ข้อความชนแป๊บนึงก่อนหน้า reload
+            beginScheduleSubmit() {
+                this.suppressScheduleCheck = true;
+                this.liveCheckSeq++;            // ทำให้ response ของ check ที่ค้างอยู่ถูกทิ้ง
+                if (this.liveTimer) { clearTimeout(this.liveTimer); this.liveTimer = null; }
+                this.liveIssues = {};
+                this.liveWarnings = {};
+            },
             async runScheduleCheck(formEl) {
                 const form = formEl || this.$refs.createForm;
                 const url = this.scheduleCheckUrlFor(form);
@@ -8672,7 +8681,7 @@
                         </div>
                         <button type="button" class="modal-close" @click="closeCreate()" aria-label="ปิด">×</button>
                     </div>
-                    <form method="POST" action="{{ $createAction }}" x-bind:action="createMode === 'series' ? seriesCreateAction : normalCreateAction" @submit="syncCreateDateInputs(); $el.action = createMode === 'series' ? seriesCreateAction : normalCreateAction" @input="queueScheduleCheck($el)" @change="queueScheduleCheck($el)" data-testid="schedule-form" data-schedule-success-toast="บันทึกสำเร็จ" x-ref="createForm">
+                    <form method="POST" action="{{ $createAction }}" x-bind:action="createMode === 'series' ? seriesCreateAction : normalCreateAction" @submit="beginScheduleSubmit(); syncCreateDateInputs(); $el.action = createMode === 'series' ? seriesCreateAction : normalCreateAction" @input="queueScheduleCheck($el)" @change="queueScheduleCheck($el)" data-testid="schedule-form" data-schedule-success-toast="บันทึกสำเร็จ" x-ref="createForm">
                         @csrf
                         <input type="hidden" name="modal_mode" value="create">
                         <input type="hidden" name="create_mode" x-bind:value="createMode">
