@@ -210,6 +210,46 @@
         </div>
     </div>
 
+    {{-- M11 — แถบส่งขออนุมัติ / สถานะอนุมัติ --}}
+    @php $approvalStatus = $courseOffering->approval_status ?? 'draft'; @endphp
+    <div x-data="{ showSubmitModal: false }" style="margin-bottom:16px;" data-testid="offering-approval-bar">
+        @if($approvalStatus === 'rejected' && $courseOffering->rejection_reason)
+            <div style="display:flex;align-items:flex-start;gap:8px;padding:12px 14px;margin-bottom:12px;background:var(--status-conflict-bg);border:1px solid var(--status-conflict-border);border-radius:8px;color:var(--status-conflict-fg);font-size:0.85rem;" data-testid="offering-rejection-reason">
+                <strong style="flex-shrink:0;">ผู้บริหารตีกลับ:</strong>
+                <span>{{ $courseOffering->rejection_reason }}</span>
+            </div>
+        @endif
+
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            @if($canEdit && in_array($approvalStatus, ['draft', 'rejected'], true))
+                <button type="button" class="btn btn-primary" @click="showSubmitModal = true" data-testid="offering-submit-button">
+                    {{ $approvalStatus === 'rejected' ? 'แก้ไขแล้ว ส่งขออนุมัติอีกครั้ง' : 'ส่งขออนุมัติ' }}
+                </button>
+                <span class="caption">เมื่อส่งแล้ว ตารางจะถูกล็อก แก้ไขไม่ได้จนกว่าผู้บริหารจะพิจารณา</span>
+            @elseif($approvalStatus === 'pending')
+                <span class="badge" style="background:var(--status-info-bg);color:var(--status-info-fg);border:1px solid var(--status-info-border);" data-testid="offering-pending-note">ส่งขออนุมัติแล้ว — รอผู้บริหารพิจารณา (ตารางถูกล็อก)</span>
+            @elseif($approvalStatus === 'published')
+                <span class="badge badge-primary" data-testid="offering-published-note">อนุมัติแล้ว</span>
+            @endif
+        </div>
+
+        {{-- modal ยืนยันส่งขออนุมัติ --}}
+        <template x-teleport="body">
+            <div class="overlay" x-show="showSubmitModal" x-cloak
+                 @click.self="showSubmitModal = false" @keydown.escape.window="showSubmitModal = false">
+                <div class="modal-center" style="max-width:440px;padding:22px;">
+                    <div style="font-weight:700;font-size:0.95rem;color:var(--fg-1);margin-bottom:6px;">ยืนยันส่งขออนุมัติ</div>
+                    <div class="caption" style="margin-bottom:16px;">ส่งตารางรายวิชานี้ให้ผู้บริหารพิจารณา — หลังส่งแล้ว <strong>ตารางจะถูกล็อก</strong> แก้ไขไม่ได้จนกว่าจะได้รับการอนุมัติหรือตีกลับ</div>
+                    <form method="POST" action="{{ route('maker.course_offerings.submit', $courseOffering) }}" style="display:flex;justify-content:flex-end;gap:8px;">
+                        @csrf
+                        <button type="button" class="btn btn-secondary" @click="showSubmitModal = false">ยกเลิก</button>
+                        <button type="submit" class="btn btn-primary" data-testid="offering-submit-confirm">ยืนยันส่ง</button>
+                    </form>
+                </div>
+            </div>
+        </template>
+    </div>
+
     {{-- Quick Summary Strip --}}
     @php
         $summaryStrip = [

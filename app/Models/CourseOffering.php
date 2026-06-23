@@ -229,6 +229,12 @@ class CourseOffering extends Model
         return $this->hasMany(Schedule::class);
     }
 
+    /** M11 — ประวัติการอนุมัติ (submit/approve/reject/revise) เรียงใหม่สุดก่อน */
+    public function approvals(): HasMany
+    {
+        return $this->hasMany(CourseOfferingApproval::class)->latest('created_at');
+    }
+
     public function scheduleTemplates(): HasMany
     {
         return $this->hasMany(ScheduleTemplate::class);

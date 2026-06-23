@@ -312,14 +312,13 @@
         @elseif($activeRole === 'executive')
             <div class="sb-sec">เมนูหลัก</div>
             <!-- Approver Menus -->
-            <span class="nv nv-disabled" role="link" aria-disabled="true" title="ฟีเจอร์รออนุมัติของผู้บริหารกำลังอยู่ในช่วงพัฒนา">
+            <a href="{{ route('approver.dashboard') }}" class="nv {{ Request::routeIs('approver.*') ? 'on' : '' }}" data-testid="nav-approver-queue">
                 <svg class="nv-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                     <polyline points="22 4 12 14.01 9 11.01"></polyline>
                 </svg>
                 <span class="nv-label">รออนุมัติ</span>
-                <span class="nv-dev-badge">กำลังพัฒนา</span>
-            </span>
+            </a>
             <span class="nv nv-disabled" role="link" aria-disabled="true" title="ฟีเจอร์ตารางทั้งหมดสำหรับผู้บริหารกำลังอยู่ในช่วงพัฒนา">
                 <svg class="nv-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
@@ -330,13 +329,12 @@
                 <span class="nv-label">ตารางทั้งหมด</span>
                 <span class="nv-dev-badge">กำลังพัฒนา</span>
             </span>
-            <span class="nv nv-disabled" role="link" aria-disabled="true" title="ฟีเจอร์ตีกลับและรายการแก้ไขกำลังอยู่ในช่วงพัฒนา">
+            <a href="{{ route('approver.offerings.rejected') }}" class="nv {{ Request::routeIs('approver.offerings.rejected') ? 'on' : '' }}" data-testid="nav-approver-rejected">
                 <svg class="nv-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                 </svg>
                 <span class="nv-label">ตีกลับ / แก้ไข</span>
-                <span class="nv-dev-badge">กำลังพัฒนา</span>
-            </span>
+            </a>
             <span class="nv nv-disabled" role="link" aria-disabled="true" title="ฟีเจอร์รายงานภาพรวมสำหรับผู้บริหารกำลังอยู่ในช่วงพัฒนา">
                 <svg class="nv-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="18" y1="20" x2="18" y2="10"></line>

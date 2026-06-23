@@ -32,7 +32,7 @@ class DashboardController extends Controller
             'admin'       => redirect()->route('admin.dashboard'),
             'staff'       => redirect()->route('staff.settings'),
             'course_head' => redirect()->route('maker.schedules.index'),
-            'executive'   => redirect()->route('dashboard.coming_soon'),
+            'executive'   => redirect()->route('approver.dashboard'),
             'instructor'  => $this->instructorLandingRedirect(),
             default       => redirect()->route('dashboard.coming_soon'),
         };
@@ -165,7 +165,30 @@ class DashboardController extends Controller
             ? app(ScheduleConflictReadRepository::class)->getExecutiveSummary((int) $currentAcademicYear->id)
             : ['status' => config('conflicts.async_reads') ? 'missing' : 'disabled', 'generation' => null, 'total' => null, 'by_type' => []];
 
-        return view('executive.dashboard', compact('currentAcademicYear', 'conflictSummary'));
+        // M11 — รายวิชาที่รออนุมัติ (คิวของผู้บริหาร)
+        $pendingOfferings = CourseOffering::query()
+            ->with(['course', 'coordinator', 'academicYear'])
+            ->withCount(['schedules', 'instructorPool'])
+            ->where('approval_status', 'pending')
+            ->when($currentAcademicYear, fn ($q) => $q->where('academic_year_id', $currentAcademicYear->id))
+            ->orderBy('updated_at')
+            ->get();
+
+        // M11 — สรุปสถานะอนุมัติทั้งปี (reuse partial เดียวกับ admin)
+        $pipelineCounts = $currentAcademicYear
+            ? CourseOffering::where('academic_year_id', $currentAcademicYear->id)
+                ->select('approval_status', DB::raw('COUNT(*) as count'))
+                ->groupBy('approval_status')
+                ->pluck('count', 'approval_status')
+            : collect();
+        $pipeline = [
+            'draft'     => $pipelineCounts['draft']     ?? 0,
+            'pending'   => $pipelineCounts['pending']   ?? 0,
+            'published' => $pipelineCounts['published'] ?? 0,
+            'rejected'  => $pipelineCounts['rejected']  ?? 0,
+        ];
+
+        return view('executive.dashboard', compact('currentAcademicYear', 'conflictSummary', 'pendingOfferings', 'pipeline'));
     }
 
     public function lecturer()

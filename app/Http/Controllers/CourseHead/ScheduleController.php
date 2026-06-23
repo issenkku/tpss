@@ -2228,6 +2228,14 @@ class ScheduleController extends Controller
                 ->withErrors(['schedule' => 'ยังไม่เปิดช่วงจัดตาราง — Admin ต้องเปิดช่วงจัดตารางก่อน']);
         }
 
+        // M11: ล็อกตารางเมื่อส่งขออนุมัติแล้ว (pending) หรืออนุมัติแล้ว (published)
+        if (in_array($courseOffering->approval_status, ['pending', 'published'], true)) {
+            $state = $courseOffering->approval_status === 'pending' ? 'อยู่ระหว่างรออนุมัติ' : 'อนุมัติแล้ว';
+            return redirect()
+                ->route('maker.course_offerings.schedules.index', $courseOffering)
+                ->withErrors(['schedule' => "รายวิชานี้{$state} — ตารางถูกล็อก แก้ไขไม่ได้"]);
+        }
+
         return null;
     }
 

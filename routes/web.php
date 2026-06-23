@@ -28,6 +28,9 @@ Route::middleware(['auth', 'no-back'])->group(function () {
     // Hub: redirect to role-specific dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/coming-soon', [DashboardController::class, 'comingSoon'])->name('dashboard.coming_soon');
+    // M11 — การแจ้งเตือน (กระดิ่ง)
+    Route::get('/notifications/{notification}/open', [\App\Http\Controllers\NotificationController::class, 'open'])->name('notifications.open');
+    Route::post('/notifications/read-all', [\App\Http\Controllers\NotificationController::class, 'markAllRead'])->name('notifications.read_all');
     Route::get('/schedule-conflicts/{schedule}/details', [ScheduleController::class, 'conflictDetails'])
         ->name('schedule_conflicts.details')
         ->middleware('throttle:60,1');
@@ -37,6 +40,13 @@ Route::middleware(['auth', 'no-back'])->group(function () {
     Route::get('/staff/dashboard',    [DashboardController::class, 'staff'])   ->name('staff.dashboard')   ->middleware('\App\Http\Middleware\CheckRole:staff');
     Route::get('/maker/dashboard',    [DashboardController::class, 'maker'])   ->name('maker.dashboard')   ->middleware('\App\Http\Middleware\CheckRole:course_head');
     Route::get('/approver/dashboard', [DashboardController::class, 'approver'])->name('approver.dashboard')->middleware('\App\Http\Middleware\CheckRole:executive');
+    // M11 — ผู้บริหารพิจารณารายวิชา (read-only + อนุมัติ/ตีกลับ)
+    Route::middleware('\App\Http\Middleware\CheckRole:executive')->group(function () {
+        Route::get('/approver/offerings/rejected', [\App\Http\Controllers\Executive\OfferingApprovalController::class, 'rejectedQueue'])->name('approver.offerings.rejected');
+        Route::get('/approver/offerings/{courseOffering}', [\App\Http\Controllers\Executive\OfferingApprovalController::class, 'show'])->name('approver.offerings.show');
+        Route::post('/approver/offerings/{courseOffering}/approve', [\App\Http\Controllers\Executive\OfferingApprovalController::class, 'approve'])->name('approver.offerings.approve');
+        Route::post('/approver/offerings/{courseOffering}/reject', [\App\Http\Controllers\Executive\OfferingApprovalController::class, 'reject'])->name('approver.offerings.reject');
+    });
     Route::get('/lecturer/dashboard', [DashboardController::class, 'lecturer'])->name('lecturer.dashboard')->middleware('\App\Http\Middleware\CheckRole:instructor');
     Route::put('/lecturer/dashboard/pa', [PaController::class, 'update'])->name('lecturer.pa.update')->middleware('\App\Http\Middleware\CheckRole:instructor');
 
@@ -84,6 +94,8 @@ Route::middleware(['auth', 'no-back'])->group(function () {
         ->group(function () {
             Route::get('/', [CourseOfferingController::class, 'index'])->name('index');
             Route::get('/{courseOffering}', [CourseOfferingController::class, 'show'])->name('show');
+            // M11 — ส่งขออนุมัติ (draft/rejected → pending) + ล็อก Draft
+            Route::post('/{courseOffering}/submit', [CourseOfferingController::class, 'submitForApproval'])->name('submit');
             Route::post('/{courseOffering}/instructors', [CourseOfferingController::class, 'storeInstructor'])->name('instructors.store');
             Route::patch('/{courseOffering}/instructors/{user}/role', [CourseOfferingController::class, 'updateInstructorRole'])->name('instructors.role');
             Route::patch('/{courseOffering}/instructors/{user}/permission', [CourseOfferingController::class, 'updateInstructorPermission'])->name('instructors.permission');

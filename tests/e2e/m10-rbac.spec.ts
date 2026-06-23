@@ -26,7 +26,7 @@ test.describe('M10 — RBAC landing per role', () => {
   });
 
   test('executive lands on the read-only landing page', async ({ page }) => {
-    // executive ถูก map ไป dashboard.coming_soon ใน DashboardController::index()
+    // M11: executive ถูก map ไป approver.dashboard (คิวอนุมัติ) ใน DashboardController::index()
     await login(page, 'exec_01');
     await expect(page).toHaveURL(/\/dashboard\/coming-soon|\/approver\/dashboard/);
   });

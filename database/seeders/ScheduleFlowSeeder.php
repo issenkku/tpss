@@ -172,44 +172,62 @@ class ScheduleFlowSeeder extends Seeder
             ->orderBy('id')
             ->first()
             ?? ActivityType::query()->orderBy('id')->firstOrFail();
-        $room = Room::query()
+        // ห้อง/อาจารย์หลายตัวเพื่อกระจายกิจกรรมแบบสมจริง (วนใช้ซ้ำถ้ามีน้อย)
+        $rooms = Room::query()
             ->where('status', 'active')
             ->whereHas('locationType', fn ($query) => $query->where('is_shared', false))
             ->orderBy('id')
-            ->first()
-            ?? Room::query()->where('status', 'active')->orderBy('id')->firstOrFail();
+            ->take(3)
+            ->get()
+            ->values();
+        if ($rooms->isEmpty()) {
+            $rooms = Room::query()->where('status', 'active')->orderBy('id')->take(3)->get()->values();
+        }
         $group = $primary->studentGroups()->orderBy('group_code')->firstOrFail();
-        $instructor = $primary->instructorPool()
+        $instructors = $primary->instructorPool()
             ->where('username', 'like', 'schedule_offering_%')
             ->orderBy('users.id')
-            ->first()
-            ?? $primary->instructorPool()->orderBy('users.id')->first();
+            ->take(3)
+            ->get()
+            ->values();
+        if ($instructors->isEmpty()) {
+            $instructors = $primary->instructorPool()->orderBy('users.id')->take(3)->get()->values();
+        }
 
-        $date = CarbonImmutable::parse($year->start_date)->addDays(2)->toDateString();
+        $roomAt = fn (int $i) => $rooms->isNotEmpty() ? $rooms[$i % $rooms->count()] : null;
+        $instAt = fn (int $i) => $instructors->isNotEmpty() ? $instructors[$i % $instructors->count()] : null;
+        $base = CarbonImmutable::parse($year->start_date)->addDays(2);
 
-        DB::transaction(function () use ($primary, $activity, $room, $group, $instructor, $date): void {
+        // ตารางฝึกปฏิบัติจริง: กระจาย 3 วัน (เช้า/บ่าย) คนละห้อง/อาจารย์ → ไม่ชน
+        // ยกเว้น F จงใจจองทับ E (วัน/เวลา/ห้อง/อาจารย์เดียวกัน) = ตัวอย่าง "จองชน" 1 จุด
+        // เพื่อ demo การตรวจชน + ให้ผู้บริหารเห็นและตีกลับได้จริง
+        $rows = [
+            ['topic' => 'เวียนฐาน A', 'label' => 'A', 'day' => 0, 'start' => '09:00', 'end' => '12:00', 'ri' => 0, 'ii' => 0],
+            ['topic' => 'เวียนฐาน B', 'label' => 'B', 'day' => 0, 'start' => '13:00', 'end' => '16:00', 'ri' => 1, 'ii' => 1],
+            ['topic' => 'เวียนฐาน C', 'label' => 'C', 'day' => 1, 'start' => '09:00', 'end' => '12:00', 'ri' => 0, 'ii' => 0],
+            ['topic' => 'อภิปรายหลังเวียนฐาน D', 'label' => 'D', 'day' => 1, 'start' => '13:00', 'end' => '16:00', 'ri' => 1, 'ii' => 1],
+            ['topic' => 'อภิปรายหลังเวียนฐาน E', 'label' => 'E', 'day' => 2, 'start' => '09:00', 'end' => '12:00', 'ri' => 2, 'ii' => 2],
+            ['topic' => 'สรุปผลการฝึกปฏิบัติรายกลุ่ม F', 'label' => 'F', 'day' => 2, 'start' => '09:00', 'end' => '12:00', 'ri' => 2, 'ii' => 2],
+        ];
+
+        DB::transaction(function () use ($primary, $activity, $group, $roomAt, $instAt, $base, $rows): void {
             $this->deleteExistingScheduleFlowDemo($primary->id);
 
-            $rows = [
-                ['topic' => 'เวียนฐาน A', 'label' => 'A'],
-                ['topic' => 'เวียนฐาน B', 'label' => 'B'],
-                ['topic' => 'เวียนฐาน C', 'label' => 'C'],
-                ['topic' => 'อภิปรายหลังเวียนฐาน D', 'label' => 'D'],
-                ['topic' => 'อภิปรายหลังเวียนฐาน E', 'label' => 'E'],
-                ['topic' => 'สรุปผลการฝึกปฏิบัติรายกลุ่ม F', 'label' => 'F'],
-            ];
-
             foreach ($rows as $row) {
+                $date = $base->addDays($row['day'])->toDateString();
+                $room = $roomAt($row['ri']);
+                $instructor = $instAt($row['ii']);
+
                 $schedule = Schedule::query()->create([
                     'course_offering_id' => $primary->id,
                     'activity_type_id' => $activity->id,
-                    'room_id' => $room->id,
+                    'room_id' => $room?->id,
                     'practicum_series_id' => null,
                     'start_date' => $date,
                     'end_date' => $date,
                     'teaching_date' => $date,
-                    'start_time' => '09:00',
-                    'end_time' => '12:00',
+                    'start_time' => $row['start'],
+                    'end_time' => $row['end'],
                     'topic' => $row['topic'],
                     'capacity_required' => $group->student_count,
                     'sub_group_label' => $row['label'],

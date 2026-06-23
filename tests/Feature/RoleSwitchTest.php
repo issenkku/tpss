@@ -115,7 +115,7 @@ class RoleSwitchTest extends TestCase
         ]);
 
         $this->withSession(['active_role' => 'executive']);
-        $this->get('/dashboard')->assertRedirect(route('dashboard.coming_soon'));
+        $this->get('/dashboard')->assertRedirect(route('approver.dashboard'));
     }
 
     public function test_deep_link_does_not_auto_switch_to_allowed_route_role(): void

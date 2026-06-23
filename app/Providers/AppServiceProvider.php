@@ -92,5 +92,27 @@ class AppServiceProvider extends ServiceProvider
             }
             $view->with('canHelpSchedule', $canHelpSchedule);
         });
+
+        // M11 — กระดิ่งแจ้งเตือนใน topbar (ฉีดเข้า layout ทุกหน้า)
+        View::composer('components.app-layout', function ($view): void {
+            $userId = auth()->id();
+            if (! $userId) {
+                $view->with('navUnreadCount', 0)->with('navNotifications', collect());
+
+                return;
+            }
+
+            $view->with(
+                'navUnreadCount',
+                \App\Models\Notification::forUser($userId)->unread()->count()
+            );
+            $view->with(
+                'navNotifications',
+                \App\Models\Notification::forUser($userId)
+                    ->orderByDesc('created_at')
+                    ->limit(8)
+                    ->get()
+            );
+        });
     }
 }

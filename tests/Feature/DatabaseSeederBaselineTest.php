@@ -84,9 +84,10 @@ class DatabaseSeederBaselineTest extends TestCase
 
         $this->assertCount(6, $stackDemoSchedules);
         $this->assertSame(1, $stackDemoSchedules->pluck('course_offering_id')->unique()->count());
-        $this->assertSame(1, $stackDemoSchedules->pluck('start_date')->map->toDateString()->unique()->count());
+        // ตารางฝึกสมจริง: กระจายหลายวัน (ไม่ใช่กองวันเดียว) + ยังคงมีจุดจองชนตั้งใจ 1 จุด (E/F)
+        $this->assertGreaterThan(1, $stackDemoSchedules->pluck('start_date')->map->toDateString()->unique()->count());
         $this->assertSame(6, $stackDemoSchedules->pluck('sub_group_label')->filter()->unique()->count());
-        $this->assertGreaterThan(3, $this->largestOverlappingStackSize($stackDemoSchedules));
+        $this->assertGreaterThanOrEqual(2, $this->largestOverlappingStackSize($stackDemoSchedules));
 
         $activeYear = AcademicYear::where('is_active', true)->firstOrFail();
         $coordinatorIds = CourseOffering::where('academic_year_id', $activeYear->id)

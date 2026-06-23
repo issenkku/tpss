@@ -4,6 +4,7 @@ namespace App\Http\Controllers\CourseHead;
 
 use App\Http\Controllers\Controller;
 use App\Models\CourseOffering;
+use App\Models\CourseOfferingApproval;
 use App\Models\CourseRole;
 use App\Models\StudentCohort;
 use App\Models\StudentGroup;
@@ -142,6 +143,91 @@ class CourseOfferingController extends Controller
             'courseRoles' => $courseRoles,
             'teachingWeeks' => (int) SystemSetting::get('teaching_load_weeks', 39),
         ]);
+    }
+
+    /**
+     * M11 Task17 — หัวหน้าวิชาส่งรายวิชาขออนุมัติ (draft/rejected → pending) + ล็อก Draft
+     */
+    public function submitForApproval(Request $request, CourseOffering $courseOffering): RedirectResponse
+    {
+        $this->authorizeCourseHeadOffering($courseOffering);
+        $courseOffering->loadMissing('course', 'academicYear');
+
+        // ต้องอยู่ในช่วงจัดตาราง (แต่ไม่ใช้ requireSchedulingPhase เพราะ pending จะโดน lock เอง)
+        if ($courseOffering->academicYear?->phase !== 'scheduling') {
+            return back()->with('error', 'ยังไม่เปิดช่วงจัดตาราง — ส่งขออนุมัติไม่ได้');
+        }
+
+        // ส่งได้เฉพาะ draft หรือ rejected (ส่งใหม่หลังถูกตีกลับ)
+        if (! in_array($courseOffering->approval_status, ['draft', 'rejected'], true)) {
+            return back()->with('error', 'รายวิชานี้ส่งขออนุมัติไปแล้ว ไม่สามารถส่งซ้ำได้');
+        }
+
+        // ต้องมีกิจกรรมอย่างน้อย 1 รายการก่อนส่ง
+        if (! $courseOffering->schedules()->exists()) {
+            return back()->with('error', 'ยังไม่มีกิจกรรมในตาราง — ต้องจัดตารางอย่างน้อย 1 รายการก่อนส่งขออนุมัติ');
+        }
+
+        $from = $courseOffering->approval_status;
+
+        DB::transaction(function () use ($courseOffering, $from) {
+            $courseOffering->update([
+                'approval_status'  => 'pending',
+                'rejection_reason' => null,
+            ]);
+
+            CourseOfferingApproval::create([
+                'course_offering_id' => $courseOffering->id,
+                'actor_user_id'      => Auth::id(),
+                'action'             => 'submit',
+                'from_status'        => $from,
+                'to_status'          => 'pending',
+            ]);
+
+            $this->notifyExecutives($courseOffering);
+        });
+
+        AuditLogger::log(
+            action: 'การอนุมัติ.ส่ง',
+            table: 'course_offerings',
+            recordId: $courseOffering->id,
+            oldValues: ['approval_status' => $from],
+            newValues: ['approval_status' => 'pending'],
+            category: 'การอนุมัติ',
+            description: "ส่งขออนุมัติรายวิชา {$this->offeringCourseLabel($courseOffering)}",
+        );
+
+        NavigationBadgeService::flushCourseHead((int) $courseOffering->coordinator_id);
+
+        return redirect()->to(route('maker.course_offerings.show', $courseOffering))
+            ->with('success', 'ส่งขออนุมัติเรียบร้อยแล้ว — รออนุมัติจากผู้บริหาร');
+    }
+
+    /** M11 — แจ้งเตือนผู้บริหารทุกคน (active) ว่ามีรายวิชารออนุมัติ */
+    private function notifyExecutives(CourseOffering $courseOffering): void
+    {
+        $execIds = DB::table('user_roles')
+            ->join('users', 'users.id', '=', 'user_roles.user_id')
+            ->where('user_roles.role', 'executive')
+            ->where('users.is_active', true)
+            ->pluck('user_roles.user_id')
+            ->unique();
+
+        if ($execIds->isEmpty()) {
+            return;
+        }
+
+        $label = $this->offeringCourseLabel($courseOffering);
+        $rows = $execIds->map(fn ($uid) => [
+            'user_id'            => $uid,
+            'course_offering_id' => $courseOffering->id,
+            'type'               => 'approval_update',
+            'message'            => "มีรายวิชารออนุมัติ: {$label}",
+            'is_read'            => false,
+            'created_at'         => now(),
+        ])->all();
+
+        DB::table('notifications')->insert($rows);
     }
 
     public function storeInstructor(Request $request, CourseOffering $courseOffering): RedirectResponse|JsonResponse
@@ -893,6 +979,15 @@ class CourseOfferingController extends Controller
             return redirect()
                 ->to(route('maker.course_offerings.show', $courseOffering) . '#' . $section)
                 ->with('error', 'ยังไม่เปิดช่วงจัดตาราง — Admin ต้องเปิดช่วงจัดตารางก่อนจึงจะแก้ไขข้อมูลรายวิชาได้')
+                ->with('error_section', $section);
+        }
+
+        // M11: ล็อกแก้ไขเมื่อส่งขออนุมัติแล้ว (pending) หรืออนุมัติแล้ว (published)
+        if (in_array($courseOffering->approval_status, ['pending', 'published'], true)) {
+            $state = $courseOffering->approval_status === 'pending' ? 'อยู่ระหว่างรออนุมัติ' : 'อนุมัติแล้ว';
+            return redirect()
+                ->to(route('maker.course_offerings.show', $courseOffering) . '#' . $section)
+                ->with('error', "รายวิชานี้{$state} — ตารางถูกล็อก แก้ไขไม่ได้")
                 ->with('error_section', $section);
         }
         return null;

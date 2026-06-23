@@ -949,7 +949,94 @@
                     </svg>
                 </button>
                 <span class="tb-title">{{ $title }}</span>
+
+                {{-- M11 — กระดิ่งแจ้งเตือน --}}
+                @php $navUnread = $navUnreadCount ?? 0; $navItems = $navNotifications ?? collect(); @endphp
+                <div class="tb-notif" style="margin-left:auto;position:relative;" x-data="{ open: false }">
+                    <button type="button" class="action-btn tb-notif-btn" @click="open = !open" :aria-expanded="open"
+                            data-testid="notif-bell" aria-label="การแจ้งเตือน" style="border:none;background:transparent;cursor:pointer;position:relative;color:var(--fg-2);">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                        </svg>
+                        @if($navUnread > 0)
+                            <span class="tb-notif-badge" data-testid="notif-unread-count">{{ $navUnread > 9 ? '9+' : $navUnread }}</span>
+                        @endif
+                    </button>
+
+                    <div x-show="open" x-cloak @click.outside="open = false" @keydown.escape.window="open = false"
+                         class="tb-notif-pop" data-testid="notif-dropdown">
+                        <div class="tb-notif-head">
+                            <span style="font-weight:700;color:var(--fg-1);">การแจ้งเตือน</span>
+                            @if($navUnread > 0)
+                                <form method="POST" action="{{ route('notifications.read_all') }}" style="margin:0;">
+                                    @csrf
+                                    <button type="submit" class="tb-notif-readall" data-testid="notif-mark-all">อ่านทั้งหมด</button>
+                                </form>
+                            @endif
+                        </div>
+                        <div class="tb-notif-list">
+                            @forelse($navItems as $n)
+                                <a href="{{ route('notifications.open', $n) }}" class="tb-notif-item {{ $n->is_read ? '' : 'is-unread' }}" data-testid="notif-item">
+                                    <span class="tb-notif-dot" aria-hidden="true"></span>
+                                    <span class="tb-notif-body">
+                                        <span class="tb-notif-msg">{{ $n->message }}</span>
+                                        <span class="tb-notif-time">{{ $n->created_at?->diffForHumans() }}</span>
+                                    </span>
+                                </a>
+                            @empty
+                                <div class="tb-notif-empty" data-testid="notif-empty">ยังไม่มีการแจ้งเตือน</div>
+                            @endforelse
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            <style>
+                .tb-notif-btn:hover { color: var(--brand-navy); }
+                .tb-notif-badge {
+                    position: absolute; top: 2px; right: 2px;
+                    min-width: 16px; height: 16px; padding: 0 4px;
+                    display: inline-flex; align-items: center; justify-content: center;
+                    background: var(--status-conflict, #b82a1e); color: #fff;
+                    font-size: 10px; font-weight: 800; line-height: 1;
+                    border-radius: 999px; font-variant-numeric: tabular-nums;
+                }
+                .tb-notif-pop {
+                    position: absolute; top: calc(100% + 8px); right: 0;
+                    width: min(360px, 90vw);
+                    background: var(--surface); border: 1px solid var(--border);
+                    border-radius: 10px; box-shadow: 0 18px 48px -22px rgba(0,36,84,0.5);
+                    z-index: var(--z-modal, 200); overflow: hidden;
+                }
+                .tb-notif-head {
+                    display: flex; align-items: center; justify-content: space-between;
+                    padding: 12px 14px; border-bottom: 1px solid var(--border);
+                    background: color-mix(in oklch, var(--brand-navy) 4%, var(--surface));
+                }
+                .tb-notif-readall {
+                    border: none; background: transparent; cursor: pointer;
+                    color: var(--brand-navy); font-size: 12px; font-weight: 700;
+                }
+                .tb-notif-readall:hover { text-decoration: underline; }
+                .tb-notif-list { max-height: 360px; overflow-y: auto; }
+                .tb-notif-item {
+                    display: flex; gap: 10px; align-items: flex-start;
+                    padding: 12px 14px; border-bottom: 1px solid var(--border);
+                    text-decoration: none; color: var(--fg-1);
+                }
+                .tb-notif-item:last-child { border-bottom: none; }
+                .tb-notif-item:hover { background: color-mix(in oklch, var(--brand-navy) 5%, var(--surface)); }
+                .tb-notif-item.is-unread { background: color-mix(in oklch, var(--status-info, #2b6cb0) 6%, var(--surface)); }
+                .tb-notif-dot {
+                    width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex-shrink: 0;
+                    background: transparent;
+                }
+                .tb-notif-item.is-unread .tb-notif-dot { background: var(--status-info, #2b6cb0); }
+                .tb-notif-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+                .tb-notif-msg { font-size: 13px; line-height: 1.5; color: var(--fg-1); }
+                .tb-notif-time { font-size: 11px; color: var(--fg-3); }
+                .tb-notif-empty { padding: 24px 14px; text-align: center; color: var(--fg-3); font-size: 13px; }
+            </style>
 
             <!-- Content -->
             <div class="content-area">

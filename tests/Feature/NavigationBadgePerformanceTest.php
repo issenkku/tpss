@@ -37,7 +37,8 @@ class NavigationBadgePerformanceTest extends TestCase
         $this->assertStringNotContainsString('href="#"', $sidebar);
         $this->assertStringNotContainsString("route('staff.dashboard')", $sidebar);
         $this->assertStringNotContainsString("route('maker.dashboard')", $sidebar);
-        $this->assertStringNotContainsString("route('approver.dashboard')", $sidebar);
+        // M11: approver.dashboard เป็นหน้าจริงแล้ว (คิวอนุมัติ) — link ได้ ไม่ใช่ placeholder
+        $this->assertStringContainsString("route('approver.dashboard')", $sidebar);
         $this->assertStringContainsString('nv-disabled', $sidebar);
         $this->assertStringContainsString('nv-label', $sidebar);
         $this->assertStringContainsString('กำลังพัฒนา', $sidebar);
