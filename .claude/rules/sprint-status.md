@@ -59,21 +59,35 @@
 > ลำดับเหตุผล: **M6 มาก่อน M9** เพราะเป็นฐานของทั้ง report และ PA actual (โมดูล PA/QA อนาคต)
 > 🚩 **เริ่มงานถัดไป = M11 Approval บน `to-serve`**
 
+### M11 Approval Workflow — Page / Role Scope (อัปเดต 23 มิ.ย. 2569)
+
+**Core workflow:** หัวหน้าวิชาเตรียมตารางและส่งขออนุมัติ → ผู้บริหารตรวจแบบ read-only แล้วอนุมัติหรือตีกลับพร้อมเหตุผล → ระบบล็อก offering ที่ `pending`/`published` และบันทึก approval history, audit log, notification ทุก action
+
+| Role | หน้าที่ควรเปิดใน M11 | เหตุผล | ขอบเขตที่ไม่ควรเปิด |
+|------|----------------------|--------|----------------------|
+| **Course Head** | `maker.course_offerings.index`, `maker.course_offerings.show`, offering schedule pages, `maker.schedules.index`, `maker.alerts`, notifications | เป็นเจ้าของ workflow: เตรียมตาราง ตรวจ warning/conflict ส่งขออนุมัติ เห็นเหตุผลตีกลับ และ resubmit | ห้าม approve/reject เอง และห้ามแก้ offering เมื่อสถานะ `pending`/`published` |
+| **Executive** | `approver.dashboard`, `approver.offerings.show`, `approver.offerings.rejected`, notifications | เป็นผู้พิจารณาอนุมัติ ต้องเห็นคิว pending รายละเอียด read-only และรายการที่ตีกลับแล้ว | ห้ามแก้ข้อมูลรายวิชา/ตาราง ห้ามใช้ schedule edit flow |
+| **Admin** | `admin.dashboard`, `admin.audit_logs.index`, `admin.alerts` แบบ monitoring | ดูภาพรวม pipeline ตรวจ audit และช่วย support ระบบ | ห้าม submit/approve/reject แทน role จริง |
+| **Staff** | schedule/support pages เฉพาะเมื่อมี delegated scheduling permission | ช่วยเตรียมข้อมูลหรือตารางได้ แต่ไม่ใช่เจ้าของการส่งอนุมัติ | ห้ามเข้า approval submit/action และห้ามเข้า `/approver/*` |
+| **Instructor** | lecturer pages หรือ delegated schedule help เฉพาะกรณีได้รับสิทธิ์ | เกี่ยวข้องกับตาราง/ภาระงาน แต่ไม่ใช่ actor ใน approval chain | ห้าม submit/approve/reject และห้ามเข้า course offering management ของหัวหน้าวิชา |
+
+**Decision / UX follow-up:**
+- เมนู `ประวัติส่งอนุมัติ` ฝั่ง Course Head ยัง disabled: เปิดใน M11 เฉพาะถ้าต้องการ approval history แบบรวมทุกวิชา; ถ้า per-offering history พอ ให้เลื่อนไปเฟสถัดไป
+- Sidebar ฝั่ง Executive แก้ active state แล้ว: คิวอนุมัติและเมนูตีกลับไม่ active ซ้อนกัน
+- `ตารางทั้งหมด` และ `รายงานภาพรวม` ฝั่ง Executive ยังไม่ใช่ M11 core; เปิดภายหลังเมื่อเข้าสู่ publish/report/workload scope
+
 ### 📅 ตารางเฟส 2 แกนหลัก (รวมทดสอบ+แก้บั๊ก) — เริ่ม จ. 22 มิ.ย. 2569 (วันทำงาน จ.–ศ.)
 > ⚠️ สลับลำดับจาก PDF: **M6 ก่อน M5** เพราะ M5 (warning ภาระงานเกิน/ต่ำเกณฑ์) ต้องใช้ตัวเลข workload จาก M6
 > ทดสอบ 2 ชั้น: ท้ายแต่ละโมดูล (manual test + แก้ข้อบกพร่อง 1 วัน · คนละส่วนกับ unit test ที่รวมในวัน dev) + ทดสอบบูรณาการรวมตอนจบ
+> ClickUp parent: `Build advanced features and reporting (Phase 2)` · Sprint Folder: `Phase 2 Sprints`
 
-| งาน | วัน | ช่วงวันที่ |
-|-----|----|-----------|
-| **M11 Approval** dev — Task17 (M11-01,06) + Task18 (M11-02,03,04,05) | 3 | จ.22–พ.24 มิ.ย. |
-| ทดสอบโมดูลและแก้ไขข้อบกพร่อง (Module Testing & Bug Fix) | 1 | พฤ.25 มิ.ย. |
-| **M6 Workload** dev — Task23 (M6-01,02) + Task24 (M6-03,04,05) | 5 | ศ.26 · จ.29 · อ.30 มิ.ย. · พ.1 · พฤ.2 ก.ค. |
-| ทดสอบโมดูลและแก้ไขข้อบกพร่อง (Module Testing & Bug Fix) | 1 | ศ.3 ก.ค. |
-| **M9 Report** dev — Task25 (M9-01,02) + Task26 (M9-03,04,05) | 5 | จ.6–ศ.10 ก.ค. |
-| ทดสอบโมดูลและแก้ไขข้อบกพร่อง (Module Testing & Bug Fix) | 1 | จ.13 ก.ค. |
-| **M5 Warning** dev — Task21 (M5-01,02) + Task22 (M5-03..06) | 2 | อ.14–พ.15 ก.ค. |
-| ทดสอบโมดูลและแก้ไขข้อบกพร่อง (Module Testing & Bug Fix) | 1 | พฤ.16 ก.ค. |
-| **ทดสอบบูรณาการระบบและแก้ไขข้อบกพร่อง (Integration Testing & Bug Fix)** | 2 | ศ.17 · จ.20 ก.ค. |
+| ClickUp sprint task | งานหลัก | งานย่อย / task ที่อยู่ใน sprint | ช่วงวันที่ | สถานะ |
+|-----|-----|-----|-----|-----|
+| `Sprint 1 — M11 Approval Workflow` | **M11 Approval** | Task17 (M11-01,06) + Task18 (M11-02,03,04,05) + Module Testing & Bug Fix | จ.22–พฤ.25 มิ.ย. | completed |
+| `Sprint 2 — M6 Workload from Real Schedules` | **M6 Workload** | Task23 (M6-01,02) + Task24 (M6-03,04,05) + Module Testing & Bug Fix | ศ.26 มิ.ย. · จ.29 มิ.ย. · อ.30 มิ.ย. · พ.1 ก.ค. · พฤ.2 ก.ค. · ศ.3 ก.ค. | Open |
+| `Sprint 3: Reporting module` | **M9 Report PDF/Excel** | Task25 (M9-01,02) + Task26 (M9-03,04,05) + Module Testing & Bug Fix | จ.6–จ.13 ก.ค. | Open |
+| `Sprint 4: Smart warnings` | **M5 Smart Warning** | Task21 (M5-01,02) + Task22 (M5-03..06) + Module Testing & Bug Fix | อ.14–พฤ.16 ก.ค. | Open |
+| `Run internal system and integration tests` | **Integration Testing & Bug Fix** | ทดสอบบูรณาการ M11 + M6 + M9 + M5 และแก้ข้อบกพร่องก่อนปิด Phase 2 core | ศ.17 · จ.20 ก.ค. | Open |
 
 **รวม 21 วันทำงาน → เสร็จแกนหลัก จ. 20 ก.ค. 2569** (Publish Views + Rotation = เดือนถัดไป)
 

@@ -41,6 +41,103 @@
 </script>
 
 <x-app-layout title="รายละเอียดรายวิชา">
+    <style>
+        .approval-workflow-panel {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 18px;
+            padding: 18px 20px;
+            margin-bottom: 18px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+        .approval-workflow-panel.is-rejected {
+            background: color-mix(in oklch, var(--status-conflict-bg) 58%, var(--surface));
+            border-color: var(--status-conflict-border);
+        }
+        .approval-workflow-panel.is-pending {
+            background: color-mix(in oklch, var(--status-info-bg) 54%, var(--surface));
+            border-color: var(--status-info-border);
+        }
+        .approval-workflow-panel.is-published {
+            background: color-mix(in oklch, var(--status-success-bg) 54%, var(--surface));
+            border-color: var(--status-success-border);
+        }
+        .approval-workflow-status {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            min-width: 0;
+        }
+        .approval-workflow-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            background: var(--brand-navy);
+            color: var(--surface);
+            flex: 0 0 auto;
+        }
+        .approval-workflow-panel.is-rejected .approval-workflow-icon {
+            background: var(--status-conflict-fg);
+        }
+        .approval-workflow-panel.is-pending .approval-workflow-icon {
+            background: var(--status-info-fg);
+        }
+        .approval-workflow-panel.is-published .approval-workflow-icon {
+            background: var(--status-success-fg);
+        }
+        .approval-workflow-title {
+            margin: 0;
+            color: var(--fg-1);
+            font-size: 1rem;
+            font-weight: 800;
+            line-height: 1.45;
+        }
+        .approval-workflow-copy {
+            margin: 4px 0 0;
+            color: var(--fg-2);
+            font-size: 0.875rem;
+            line-height: 1.6;
+            max-width: 74ch;
+        }
+        .approval-reason-box {
+            margin-top: 10px;
+            padding: 10px 12px;
+            background: color-mix(in oklch, var(--surface) 72%, var(--status-conflict-bg));
+            border: 1px solid color-mix(in oklch, var(--status-conflict-border) 72%, var(--surface));
+            border-radius: 8px;
+            color: var(--status-conflict-fg);
+            font-size: 0.9rem;
+            font-weight: 650;
+            line-height: 1.65;
+            overflow-wrap: anywhere;
+        }
+        .approval-workflow-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .approval-workflow-actions .btn {
+            min-height: 44px;
+        }
+        @media (max-width: 860px) {
+            .approval-workflow-panel {
+                grid-template-columns: 1fr;
+                align-items: stretch;
+            }
+            .approval-workflow-actions {
+                justify-content: flex-start;
+            }
+        }
+    </style>
+
     @if($canEdit)
         <script>
             document.addEventListener('alpine:init', () => {
@@ -213,24 +310,64 @@
     {{-- M11 — แถบส่งขออนุมัติ / สถานะอนุมัติ --}}
     @php $approvalStatus = $courseOffering->approval_status ?? 'draft'; @endphp
     <div x-data="{ showSubmitModal: false }" style="margin-bottom:16px;" data-testid="offering-approval-bar">
-        @if($approvalStatus === 'rejected' && $courseOffering->rejection_reason)
-            <div style="display:flex;align-items:flex-start;gap:8px;padding:12px 14px;margin-bottom:12px;background:var(--status-conflict-bg);border:1px solid var(--status-conflict-border);border-radius:8px;color:var(--status-conflict-fg);font-size:0.85rem;" data-testid="offering-rejection-reason">
-                <strong style="flex-shrink:0;">ผู้บริหารตีกลับ:</strong>
-                <span>{{ $courseOffering->rejection_reason }}</span>
-            </div>
-        @endif
+        <div class="approval-workflow-panel {{ $approvalStatus === 'rejected' ? 'is-rejected' : ($approvalStatus === 'pending' ? 'is-pending' : ($approvalStatus === 'published' ? 'is-published' : '')) }}">
+            <div class="approval-workflow-status">
+                <span class="approval-workflow-icon" aria-hidden="true">
+                    @if($approvalStatus === 'rejected')
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="9"/>
+                            <line x1="12" y1="7" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                    @elseif($approvalStatus === 'pending')
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="9"/>
+                            <polyline points="12 7 12 12 15 14"/>
+                        </svg>
+                    @elseif($approvalStatus === 'published')
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="9"/>
+                            <polyline points="8 12.5 10.7 15 16 9"/>
+                        </svg>
+                    @else
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 4h14v16H5z"/>
+                            <path d="M8 8h8"/>
+                            <path d="M8 12h8"/>
+                            <path d="M8 16h5"/>
+                        </svg>
+                    @endif
+                </span>
 
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-            @if($canEdit && in_array($approvalStatus, ['draft', 'rejected'], true))
-                <button type="button" class="btn btn-primary" @click="showSubmitModal = true" data-testid="offering-submit-button">
-                    {{ $approvalStatus === 'rejected' ? 'แก้ไขแล้ว ส่งขออนุมัติอีกครั้ง' : 'ส่งขออนุมัติ' }}
-                </button>
-                <span class="caption">เมื่อส่งแล้ว ตารางจะถูกล็อก แก้ไขไม่ได้จนกว่าผู้บริหารจะพิจารณา</span>
-            @elseif($approvalStatus === 'pending')
-                <span class="badge" style="background:var(--status-info-bg);color:var(--status-info-fg);border:1px solid var(--status-info-border);" data-testid="offering-pending-note">ส่งขออนุมัติแล้ว — รอผู้บริหารพิจารณา (ตารางถูกล็อก)</span>
-            @elseif($approvalStatus === 'published')
-                <span class="badge badge-primary" data-testid="offering-published-note">อนุมัติแล้ว</span>
-            @endif
+                <div>
+                    @if($approvalStatus === 'rejected')
+                        <h2 class="approval-workflow-title">ต้องแก้ไขก่อนส่งขออนุมัติอีกครั้ง</h2>
+                        <p class="approval-workflow-copy">ผู้บริหารตีกลับรายการนี้ ตรวจเหตุผลด้านล่างแล้วปรับข้อมูลหรือตารางให้เรียบร้อยก่อนส่งใหม่</p>
+                        @if($courseOffering->rejection_reason)
+                            <div class="approval-reason-box" data-testid="offering-rejection-reason">
+                                {{ $courseOffering->rejection_reason }}
+                            </div>
+                        @endif
+                    @elseif($approvalStatus === 'pending')
+                        <h2 class="approval-workflow-title">ส่งขออนุมัติแล้ว</h2>
+                        <p class="approval-workflow-copy" data-testid="offering-pending-note">กำลังรอผู้บริหารพิจารณา ตารางและข้อมูลรายวิชาถูกล็อกชั่วคราว</p>
+                    @elseif($approvalStatus === 'published')
+                        <h2 class="approval-workflow-title" data-testid="offering-published-note">อนุมัติแล้ว</h2>
+                        <p class="approval-workflow-copy">รายวิชานี้ผ่านการพิจารณาแล้ว ตารางถูกล็อกเพื่อรักษาข้อมูลที่เผยแพร่</p>
+                    @else
+                        <h2 class="approval-workflow-title">พร้อมส่งให้ผู้บริหารพิจารณา</h2>
+                        <p class="approval-workflow-copy">เมื่อส่งแล้ว ตารางจะถูกล็อกจนกว่าผู้บริหารจะอนุมัติหรือตีกลับ</p>
+                    @endif
+                </div>
+            </div>
+
+            <div class="approval-workflow-actions">
+                @if($canEdit && in_array($approvalStatus, ['draft', 'rejected'], true))
+                    <button type="button" class="btn btn-primary" @click="showSubmitModal = true" data-testid="offering-submit-button">
+                        {{ $approvalStatus === 'rejected' ? 'ส่งขออนุมัติอีกครั้ง' : 'ส่งขออนุมัติ' }}
+                    </button>
+                @endif
+            </div>
         </div>
 
         {{-- modal ยืนยันส่งขออนุมัติ --}}
@@ -239,7 +376,7 @@
                  @click.self="showSubmitModal = false" @keydown.escape.window="showSubmitModal = false">
                 <div class="modal-center" style="max-width:440px;padding:22px;">
                     <div style="font-weight:700;font-size:0.95rem;color:var(--fg-1);margin-bottom:6px;">ยืนยันส่งขออนุมัติ</div>
-                    <div class="caption" style="margin-bottom:16px;">ส่งตารางรายวิชานี้ให้ผู้บริหารพิจารณา — หลังส่งแล้ว <strong>ตารางจะถูกล็อก</strong> แก้ไขไม่ได้จนกว่าจะได้รับการอนุมัติหรือตีกลับ</div>
+                    <div class="caption" style="margin-bottom:16px;">ส่งตารางรายวิชานี้ให้ผู้บริหารพิจารณา หลังส่งแล้ว <strong>ตารางจะถูกล็อก</strong> จนกว่าจะได้รับการอนุมัติหรือตีกลับ</div>
                     <form method="POST" action="{{ route('maker.course_offerings.submit', $courseOffering) }}" style="display:flex;justify-content:flex-end;gap:8px;">
                         @csrf
                         <button type="button" class="btn btn-secondary" @click="showSubmitModal = false">ยกเลิก</button>
