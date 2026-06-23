@@ -156,11 +156,7 @@ class DashboardController extends Controller
 
     public function approver()
     {
-        $currentAcademicYear = AcademicYear::where('is_active', true)
-            ->orWhere('phase', 'scheduling')
-            ->orderByDesc('is_active')
-            ->orderByDesc('start_date')
-            ->first();
+        $currentAcademicYear = AcademicYear::currentForApproval();
         $conflictSummary = config('conflicts.async_reads') && $currentAcademicYear
             ? app(ScheduleConflictReadRepository::class)->getExecutiveSummary((int) $currentAcademicYear->id)
             : ['status' => config('conflicts.async_reads') ? 'missing' : 'disabled', 'generation' => null, 'total' => null, 'by_type' => []];

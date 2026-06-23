@@ -170,11 +170,21 @@ class CourseOfferingController extends Controller
 
         $from = $courseOffering->approval_status;
 
-        DB::transaction(function () use ($courseOffering, $from) {
-            $courseOffering->update([
-                'approval_status'  => 'pending',
-                'rejection_reason' => null,
-            ]);
+        $claimed = DB::transaction(function () use ($courseOffering, $from) {
+            // atomic claim — กันกดส่งซ้ำ (double-click) แล้วยิงแจ้งเตือนผู้บริหารทั้งชุดซ้ำ
+            $rows = CourseOffering::whereKey($courseOffering->id)
+                ->whereIn('approval_status', ['draft', 'rejected'])
+                ->update([
+                    'approval_status'  => 'pending',
+                    'rejection_reason' => null,
+                ]);
+
+            if ($rows === 0) {
+                return false;
+            }
+
+            $courseOffering->approval_status  = 'pending';
+            $courseOffering->rejection_reason = null;
 
             CourseOfferingApproval::create([
                 'course_offering_id' => $courseOffering->id,
@@ -185,7 +195,13 @@ class CourseOfferingController extends Controller
             ]);
 
             $this->notifyExecutives($courseOffering);
+
+            return true;
         });
+
+        if (! $claimed) {
+            return back()->with('error', 'รายวิชานี้ถูกส่งขออนุมัติไปแล้ว');
+        }
 
         AuditLogger::log(
             action: 'การอนุมัติ.ส่ง',
@@ -983,7 +999,7 @@ class CourseOfferingController extends Controller
         }
 
         // M11: ล็อกแก้ไขเมื่อส่งขออนุมัติแล้ว (pending) หรืออนุมัติแล้ว (published)
-        if (in_array($courseOffering->approval_status, ['pending', 'published'], true)) {
+        if ($courseOffering->isLocked()) {
             $state = $courseOffering->approval_status === 'pending' ? 'อยู่ระหว่างรออนุมัติ' : 'อนุมัติแล้ว';
             return redirect()
                 ->to(route('maker.course_offerings.show', $courseOffering) . '#' . $section)

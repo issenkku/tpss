@@ -235,6 +235,16 @@ class CourseOffering extends Model
         return $this->hasMany(CourseOfferingApproval::class)->latest('created_at');
     }
 
+    /**
+     * M11 — รายวิชาถูกล็อกแก้ไข (ตาราง/ชุดผู้สอน/กลุ่ม) เมื่อส่งขออนุมัติแล้ว (pending)
+     * หรืออนุมัติแล้ว (published) — source of truth จุดเดียว ใช้ใน requireSchedulingPhase
+     * ทั้งฝั่งจัดตาราง (ScheduleController) และฝั่งจัดการรายวิชา (CourseOfferingController)
+     */
+    public function isLocked(): bool
+    {
+        return in_array($this->approval_status, ['pending', 'published'], true);
+    }
+
     public function scheduleTemplates(): HasMany
     {
         return $this->hasMany(ScheduleTemplate::class);

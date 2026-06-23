@@ -2229,7 +2229,7 @@ class ScheduleController extends Controller
         }
 
         // M11: ล็อกตารางเมื่อส่งขออนุมัติแล้ว (pending) หรืออนุมัติแล้ว (published)
-        if (in_array($courseOffering->approval_status, ['pending', 'published'], true)) {
+        if ($courseOffering->isLocked()) {
             $state = $courseOffering->approval_status === 'pending' ? 'อยู่ระหว่างรออนุมัติ' : 'อนุมัติแล้ว';
             return redirect()
                 ->route('maker.course_offerings.schedules.index', $courseOffering)

@@ -45,6 +45,21 @@ class AcademicYear extends Model
         return $this->hasMany(CourseOffering::class);
     }
 
+    /**
+     * M11 — ปีที่ใช้เป็นบริบทของ flow อนุมัติ (คิว pending / รายการตีกลับ / dashboard ผู้บริหาร)
+     * ใช้ปีที่ active ก่อน ถ้าไม่มีให้ใช้ปีที่อยู่ในช่วงจัดตาราง — รวม logic ไว้จุดเดียว
+     * เพื่อให้ทุกหน้าฝั่งผู้บริหารอ้างปีเดียวกัน (กันรายการ pending/rejected โชว์คนละปี)
+     */
+    public static function currentForApproval(): ?self
+    {
+        return static::query()
+            ->where('is_active', true)
+            ->orWhere('phase', 'scheduling')
+            ->orderByDesc('is_active')
+            ->orderByDesc('start_date')
+            ->first();
+    }
+
     public function paRounds(): HasMany
     {
         return $this->hasMany(PaRound::class);

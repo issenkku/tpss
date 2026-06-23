@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\AcademicYear;
 use App\Models\CourseOffering;
+use App\Models\CourseOfferingApproval;
 use App\Models\Notification;
 use App\Models\Schedule;
 use App\Models\User;
@@ -325,5 +327,77 @@ class M11ApprovalTest extends ScheduleTestCase
         $this->post(route('notifications.read_all'))->assertRedirect();
 
         $this->assertSame(0, Notification::where('user_id', $executive->id)->where('is_read', false)->count());
+    }
+
+    // ---------- Fix 1: กฎล็อกรวมไว้จุดเดียว (CourseOffering::isLocked) ----------
+
+    public function test_is_locked_only_for_pending_and_published(): void
+    {
+        $this->assertFalse((new CourseOffering(['approval_status' => 'draft']))->isLocked());
+        $this->assertTrue((new CourseOffering(['approval_status' => 'pending']))->isLocked());
+        $this->assertTrue((new CourseOffering(['approval_status' => 'published']))->isLocked());
+        $this->assertFalse((new CourseOffering(['approval_status' => 'rejected']))->isLocked());
+    }
+
+    // ---------- Fix 3: ตัวเลือกปีของ flow อนุมัติรวมไว้จุดเดียว ----------
+
+    public function test_current_for_approval_prefers_active_year_over_scheduling(): void
+    {
+        $scheduling = AcademicYear::create([
+            'name' => '2570', 'start_date' => '2026-08-01', 'end_date' => '2026-12-31',
+            'is_active' => false, 'phase' => 'scheduling',
+        ]);
+        $active = AcademicYear::create([
+            'name' => '2571', 'start_date' => '2027-08-01', 'end_date' => '2027-12-31',
+            'is_active' => true, 'phase' => 'preparation',
+        ]);
+
+        // ปี active มาก่อนปีที่อยู่ในช่วงจัดตาราง (เหมือนกันทั้ง dashboard + หน้าตีกลับ)
+        $this->assertSame($active->id, AcademicYear::currentForApproval()?->id);
+    }
+
+    public function test_current_for_approval_falls_back_to_scheduling_year(): void
+    {
+        $scheduling = AcademicYear::create([
+            'name' => '2570', 'start_date' => '2026-08-01', 'end_date' => '2026-12-31',
+            'is_active' => false, 'phase' => 'scheduling',
+        ]);
+
+        // ไม่มีปี active → ใช้ปีที่อยู่ในช่วงจัดตาราง
+        $this->assertSame($scheduling->id, AcademicYear::currentForApproval()?->id);
+    }
+
+    // ---------- Fix 2: กดซ้ำไม่เด้ง log/แจ้งเตือนซ้ำ (idempotency contract) ----------
+
+    public function test_double_submit_does_not_duplicate_approval_or_notifications(): void
+    {
+        $executive = $this->makeUser('executive');
+        [$head, $offering, $instructor, $group, $activity, $room] = $this->makeReadyOffering();
+        $this->makeSchedule($offering, $activity, $room, [$instructor], [$group]);
+
+        $this->actingAsCourseHead($head);
+        $this->post(route('maker.course_offerings.submit', $offering));
+        $this->post(route('maker.course_offerings.submit', $offering)); // กดส่งซ้ำ
+
+        $this->assertSame(1, CourseOfferingApproval::where('course_offering_id', $offering->id)
+            ->where('action', 'submit')->count());
+        $this->assertSame(1, Notification::where('user_id', $executive->id)
+            ->where('course_offering_id', $offering->id)->count());
+    }
+
+    public function test_double_approve_does_not_duplicate_approval_or_notifications(): void
+    {
+        $executive = $this->makeUser('executive');
+        [$head, $offering] = $this->makeReadyOffering();
+        $offering->update(['approval_status' => 'pending']);
+
+        $this->actingAsExecutive($executive);
+        $this->post(route('approver.offerings.approve', $offering));
+        $this->post(route('approver.offerings.approve', $offering)); // กดอนุมัติซ้ำ
+
+        $this->assertSame(1, CourseOfferingApproval::where('course_offering_id', $offering->id)
+            ->where('action', 'approve')->count());
+        $this->assertSame(1, Notification::where('user_id', $head->id)
+            ->where('course_offering_id', $offering->id)->count());
     }
 }

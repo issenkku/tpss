@@ -23,12 +23,7 @@ class OfferingApprovalController extends Controller
     /** หน้ารายวิชาที่ถูกตีกลับ (ผู้บริหารติดตามว่ารอหัวหน้าวิชาแก้ไขแล้วส่งใหม่) */
     public function rejectedQueue(): View
     {
-        $year = AcademicYear::query()
-            ->where('is_active', true)
-            ->orWhere('phase', 'scheduling')
-            ->orderByDesc('is_active')
-            ->orderByDesc('start_date')
-            ->first();
+        $year = AcademicYear::currentForApproval();
 
         $rejectedOfferings = CourseOffering::query()
             ->with(['course', 'coordinator', 'academicYear', 'approvals.actor'])
@@ -67,8 +62,17 @@ class OfferingApprovalController extends Controller
             return $this->backToQueue()->with('error', 'รายวิชานี้ไม่ได้อยู่ในสถานะรออนุมัติ');
         }
 
-        DB::transaction(function () use ($courseOffering) {
-            $courseOffering->update(['approval_status' => 'published']);
+        $claimed = DB::transaction(function () use ($courseOffering) {
+            // atomic claim — กันผู้บริหาร 2 คนกดอนุมัติพร้อมกัน (เด้ง log/แจ้งเตือนซ้ำ)
+            $rows = CourseOffering::whereKey($courseOffering->id)
+                ->where('approval_status', 'pending')
+                ->update(['approval_status' => 'published']);
+
+            if ($rows === 0) {
+                return false;
+            }
+
+            $courseOffering->approval_status = 'published';
 
             CourseOfferingApproval::create([
                 'course_offering_id' => $courseOffering->id,
@@ -79,7 +83,13 @@ class OfferingApprovalController extends Controller
             ]);
 
             $this->notifyCoordinator($courseOffering, "รายวิชา {$this->label($courseOffering)} ได้รับการอนุมัติแล้ว");
+
+            return true;
         });
+
+        if (! $claimed) {
+            return $this->backToQueue()->with('error', 'รายวิชานี้ถูกดำเนินการไปแล้ว');
+        }
 
         AuditLogger::log(
             action: 'การอนุมัติ.อนุมัติ',
@@ -107,11 +117,21 @@ class OfferingApprovalController extends Controller
             return $this->backToQueue()->with('error', 'รายวิชานี้ไม่ได้อยู่ในสถานะรออนุมัติ');
         }
 
-        DB::transaction(function () use ($courseOffering, $validated) {
-            $courseOffering->update([
-                'approval_status'  => 'rejected',
-                'rejection_reason' => $validated['rejection_reason'],
-            ]);
+        $claimed = DB::transaction(function () use ($courseOffering, $validated) {
+            // atomic claim — กัน approve/reject แข่งกัน (เด้ง log/แจ้งเตือนซ้ำหรือสถานะปลายทางขัดกัน)
+            $rows = CourseOffering::whereKey($courseOffering->id)
+                ->where('approval_status', 'pending')
+                ->update([
+                    'approval_status'  => 'rejected',
+                    'rejection_reason' => $validated['rejection_reason'],
+                ]);
+
+            if ($rows === 0) {
+                return false;
+            }
+
+            $courseOffering->approval_status  = 'rejected';
+            $courseOffering->rejection_reason = $validated['rejection_reason'];
 
             CourseOfferingApproval::create([
                 'course_offering_id' => $courseOffering->id,
@@ -123,7 +143,13 @@ class OfferingApprovalController extends Controller
             ]);
 
             $this->notifyCoordinator($courseOffering, "รายวิชา {$this->label($courseOffering)} ถูกตีกลับ — โปรดแก้ไขและส่งใหม่");
+
+            return true;
         });
+
+        if (! $claimed) {
+            return $this->backToQueue()->with('error', 'รายวิชานี้ถูกดำเนินการไปแล้ว');
+        }
 
         AuditLogger::log(
             action: 'การอนุมัติ.ปฏิเสธ',
