@@ -10,7 +10,14 @@
         "test:e2e": "playwright test",
         "test:e2e:headed": "playwright test --headed",
         "test:e2e:ui": "playwright test --ui",
-        "test:e2e:report": "playwright show-report"
+        "test:e2e:report": "playwright show-report",
+        "wp07:test": "node scripts/wp07-record-test-result.mjs",
+        "wp07:test:m11:feature": "node scripts/wp07-record-test-result.mjs --module=M11 --type=Feature --command=\"php artisan test --filter=M11ApprovalTest\"",
+        "wp07:test:m11:e2e": "node scripts/wp07-record-test-result.mjs --module=M11 --type=E2E --evidence=playwright-report --command=\"npx playwright test tests/e2e/m11-approval.spec.ts --project=chromium\"",
+        "wp07:test:all": "node scripts/wp07-record-test-result.mjs --module=ALL --type=Unit --command=\"php artisan test\"",
+        "wp07:test:unit": "node scripts/wp07-record-test-result.mjs --module=ALL --type=Unit --command=\"php artisan test --testsuite=Unit\"",
+        "wp07:test:feature": "node scripts/wp07-record-test-result.mjs --module=ALL --type=Feature --command=\"php artisan test --testsuite=Feature\"",
+        "wp07:test:e2e": "node scripts/wp07-record-test-result.mjs --module=ALL --type=E2E --evidence=playwright-report --command=\"npx playwright test --project=chromium\""
     },
     "devDependencies": {
         "@playwright/test": "^1.60.0",
