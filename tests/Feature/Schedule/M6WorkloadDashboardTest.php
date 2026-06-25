@@ -206,6 +206,12 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
         $this->assertSame(1, $summary['instructor_count']);
         $this->assertSame(3.5, $summary['total_hours']);
         $this->assertSame(0.0, $summary['practicum_hours']);
+
+        // แยกตามระดับหลักสูตร (curriculum helper = ป.ตรี)
+        $response->assertSee('data-testid="workload-by-level"', false);
+        $byLevel = $response->viewData('byLevel');
+        $this->assertSame(3.5, $byLevel['bachelor']);
+        $this->assertSame(0.0, $byLevel['master']);
     }
 
     public function test_workload_report_exports_csv_with_bom(): void

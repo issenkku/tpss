@@ -21,9 +21,10 @@ class WorkloadReportController extends Controller
         [$year, $instructors, $instructorHours, $teachingWeeks, $hoursPerWeek] = $this->reportData();
 
         $summary = $this->summarize($instructors, $instructorHours, $teachingWeeks, $hoursPerWeek);
+        $byLevel = $year ? (new WorkloadCalculator)->facultyHoursByEducationLevel($year->id) : ['bachelor' => 0, 'master' => 0, 'doctorate' => 0];
 
         return view('admin.reports.workload', compact(
-            'year', 'instructors', 'instructorHours', 'teachingWeeks', 'hoursPerWeek', 'summary'
+            'year', 'instructors', 'instructorHours', 'teachingWeeks', 'hoursPerWeek', 'summary', 'byLevel'
         ));
     }
 

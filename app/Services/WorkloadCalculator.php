@@ -119,6 +119,38 @@ class WorkloadCalculator
         ], $totals);
     }
 
+    /**
+     * รวมชั่วโมงภาระงานทั้งคณะแยกตามระดับหลักสูตร (person-hours — สอดคล้องกับ facultyTotalsForYear)
+     * ผู้บริหารดูว่าอาจารย์สอนระดับใดบ้าง จำนวนเท่าไร
+     *
+     * @return array{bachelor: float, master: float, doctorate: float}
+     */
+    public function facultyHoursByEducationLevel(int $academicYearId, CarbonInterface|string|null $asOf = null): array
+    {
+        $totals = ['bachelor' => 0.0, 'master' => 0.0, 'doctorate' => 0.0];
+
+        Schedule::query()
+            ->where('status', 'approved')
+            ->whereHas('activityType', fn ($q) => $q->where('counts_toward_workload', true))
+            ->whereHas('courseOffering', fn ($q) => $q->where('academic_year_id', $academicYearId))
+            ->with(['activityType', 'instructors:id', 'courseOffering.course.curriculum:id,education_level'])
+            ->get()
+            ->each(function (Schedule $schedule) use (&$totals): void {
+                $level = $schedule->courseOffering?->course?->curriculum?->education_level;
+
+                if (! $level || ! array_key_exists($level, $totals)) {
+                    return;
+                }
+
+                $perInstructor = $this->hoursForInstructor($schedule);
+                foreach ($schedule->instructors as $instructor) {
+                    $totals[$level] += $perInstructor;
+                }
+            });
+
+        return array_map(fn ($hours) => round($hours, 1), $totals);
+    }
+
     private function hoursPerDay(Schedule $schedule): float
     {
         if (! $schedule->start_time || ! $schedule->end_time) {
