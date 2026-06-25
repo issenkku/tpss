@@ -1,5 +1,6 @@
 @php
-    $workloadRows = $instructors->values()->map(function ($instructor) use ($teachingWeeks, $hoursPerWeek) {
+    $instructorHours = $instructorHours ?? [];
+    $workloadRows = $instructors->values()->map(function ($instructor) use ($teachingWeeks, $hoursPerWeek, $instructorHours) {
         $profile = $instructor->instructorProfile;
         $employmentType = $profile?->employment_type;
         $hasQuota = $profile && $profile->teaching_pct;
@@ -13,13 +14,17 @@
             $quota = number_format(($base * $profile->teaching_pct) / 100, 1);
         }
 
+        // ชั่วโมงจริงจาก schedule (M6) — accrued = สะสมถึงวันนี้, total = ทั้งปีที่อนุมัติ
+        $hours = $instructorHours[$instructor->id] ?? ['accrued' => 0, 'total' => 0];
+
         return [
             'id' => $instructor->id,
             'employeeId' => $instructor->employee_id ?: '-',
             'name' => $instructor->formatted_name,
             'employmentType' => $employmentType,
             'department' => $profile?->department?->name ?: '-',
-            'teachingHours' => '0.0',
+            'teachingHours' => number_format($hours['accrued'], 1),
+            'totalHours' => number_format($hours['total'], 1),
             'hasQuota' => (bool) $hasQuota,
             'quota' => $quota,
             'period' => $period,
@@ -78,7 +83,10 @@
                             </template>
                         </td>
                         <td class="workload-department-cell" style="color: var(--fg-2); font-size: 13px;" x-text="row.department"></td>
-                        <td style="text-align: right; font-weight: 700; color: var(--fg-3);" x-text="row.teachingHours"></td>
+                        <td style="text-align: right;">
+                            <div style="font-weight: 700; color: var(--fg-1); font-size: 14px; font-variant-numeric: tabular-nums;" x-text="row.teachingHours"></div>
+                            <div style="font-size: 11px; color: var(--fg-3);">/ <span style="font-variant-numeric: tabular-nums;" x-text="row.totalHours"></span> ทั้งปี</div>
+                        </td>
                         <td class="workload-quota-cell" style="text-align: right; padding-right: 24px;">
                             <template x-if="row.hasQuota">
                                 <div>

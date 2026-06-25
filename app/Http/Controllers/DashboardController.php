@@ -10,11 +10,14 @@ use App\Models\Course;
 use App\Models\CourseOffering;
 use App\Models\Curriculum;
 use App\Models\Room;
+use App\Models\Schedule;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\UserRole;
 use App\Services\AuditLogger;
 use App\Services\ScheduleConflictReadRepository;
+use App\Services\WorkloadCalculator;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -123,7 +126,9 @@ class DashboardController extends Controller
             ? app(ScheduleConflictReadRepository::class)->getGlobalSummary((int) $currentAcademicYear->id)
             : ['status' => config('conflicts.async_reads') ? 'missing' : 'disabled', 'generation' => null, 'total' => null, 'by_type' => []];
 
-        return view('admin.dashboard', compact('instructors', 'teachingWeeks', 'hoursPerWeek', 'alerts', 'criticals', 'currentAcademicYear', 'stats', 'pipeline', 'conflictSummary'));
+        $instructorHours = $this->instructorWorkloadHours($currentAcademicYear);
+
+        return view('admin.dashboard', compact('instructors', 'teachingWeeks', 'hoursPerWeek', 'alerts', 'criticals', 'currentAcademicYear', 'stats', 'pipeline', 'conflictSummary', 'instructorHours'));
     }
 
     public function staff()
@@ -131,12 +136,15 @@ class DashboardController extends Controller
         ['instructors' => $instructors, 'teachingWeeks' => $teachingWeeks, 'hoursPerWeek' => $hoursPerWeek]
             = $this->instructorWorkloadData();
 
+        $currentAcademicYear = AcademicYear::where('is_active', true)->orderByDesc('name')->first();
+        $instructorHours = $this->instructorWorkloadHours($currentAcademicYear);
+
         $recentAuditLogs = AuditLog::with('user')
             ->orderedForAudit()
             ->limit(5)
             ->get();
 
-        return view('staff.dashboard', compact('instructors', 'teachingWeeks', 'hoursPerWeek', 'recentAuditLogs'));
+        return view('staff.dashboard', compact('instructors', 'teachingWeeks', 'hoursPerWeek', 'recentAuditLogs', 'instructorHours'));
     }
 
     private function instructorWorkloadData(): array
@@ -147,6 +155,44 @@ class DashboardController extends Controller
             'teachingWeeks' => SystemSetting::get('teaching_load_weeks', 39),
             'hoursPerWeek'  => SystemSetting::get('teaching_quota_hours_per_week', 35),
         ];
+    }
+
+    /**
+     * ผลรวมชั่วโมงสอนจริงรายอาจารย์ในปีการศึกษา (M6) — approved + counts_toward_workload
+     * คืน [user_id => ['accrued' => float, 'total' => float]] ใช้สูตรกลางจาก WorkloadCalculator
+     * accrued = สะสมถึงวันนี้ (นับรายวันใน block) · total = ทั้งปีที่อนุมัติแล้ว
+     */
+    private function instructorWorkloadHours(?AcademicYear $year): array
+    {
+        if (! $year) {
+            return [];
+        }
+
+        $calculator = new WorkloadCalculator;
+        $today = CarbonImmutable::today();
+        $totals = [];
+
+        Schedule::query()
+            ->where('status', 'approved')
+            ->whereHas('activityType', fn ($q) => $q->where('counts_toward_workload', true))
+            ->whereHas('courseOffering', fn ($q) => $q->where('academic_year_id', $year->id))
+            ->with(['activityType', 'instructors:id'])
+            ->get()
+            ->each(function (Schedule $schedule) use ($calculator, $today, &$totals): void {
+                $perInstructorTotal = $calculator->hoursForInstructor($schedule);
+                $perInstructorAccrued = $calculator->accruedHoursFor($schedule, $today);
+
+                foreach ($schedule->instructors as $instructor) {
+                    $totals[$instructor->id] ??= ['accrued' => 0.0, 'total' => 0.0];
+                    $totals[$instructor->id]['total'] += $perInstructorTotal;
+                    $totals[$instructor->id]['accrued'] += $perInstructorAccrued;
+                }
+            });
+
+        return array_map(fn (array $row) => [
+            'accrued' => round($row['accrued'], 1),
+            'total' => round($row['total'], 1),
+        ], $totals);
     }
 
     public function maker()
