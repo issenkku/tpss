@@ -175,4 +175,66 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
         $response->assertSee('wl-usage-fill'); // แท่งกราฟ render
         $response->assertSee('175');           // % การใช้เทียบเกณฑ์ (ใน row data)
     }
+
+    public function test_admin_can_view_workload_report_page(): void
+    {
+        [$head, $offering, $instructor, $group, $lecture, $room] = $this->makeReadyOffering();
+        AcademicYear::where('id', $offering->academic_year_id)->update([
+            'start_date' => '2026-01-01',
+            'end_date' => '2026-12-31',
+        ]);
+        $this->makeSchedule($offering, $lecture, $room, [$instructor], [$group], [
+            'status' => 'approved',
+            'start_date' => '2026-06-01',
+            'end_date' => '2026-06-01',
+            'start_time' => '09:00',
+            'end_time' => '12:30',
+        ]);
+
+        $admin = $this->makeUser('admin');
+        $this->actingAs($admin)->withSession(['active_role' => 'admin']);
+
+        $this->get(route('admin.reports.workload'))
+            ->assertOk()
+            ->assertSee('รายงานภาระงานสอน')
+            ->assertSee('นำออก Excel')
+            ->assertViewHas('instructorHours');
+    }
+
+    public function test_workload_report_exports_csv_with_bom(): void
+    {
+        [$head, $offering, $instructor, $group, $lecture, $room] = $this->makeReadyOffering();
+        AcademicYear::where('id', $offering->academic_year_id)->update([
+            'start_date' => '2026-01-01',
+            'end_date' => '2026-12-31',
+        ]);
+        $this->makeSchedule($offering, $lecture, $room, [$instructor], [$group], [
+            'status' => 'approved',
+            'start_date' => '2026-06-01',
+            'end_date' => '2026-06-01',
+            'start_time' => '09:00',
+            'end_time' => '12:30',
+        ]);
+
+        $admin = $this->makeUser('admin');
+        $this->actingAs($admin)->withSession(['active_role' => 'admin']);
+
+        $response = $this->get(route('admin.reports.workload.export'));
+        $response->assertOk();
+        $this->assertStringContainsString('text/csv', $response->headers->get('Content-Type'));
+
+        $content = $response->getContent();
+        $this->assertStringStartsWith("\xEF\xBB\xBF", $content);   // UTF-8 BOM (Excel ไทย)
+        $this->assertStringContainsString('ชั่วโมงทั้งปี', $content); // header
+        $this->assertStringContainsString('3.5', $content);          // ชั่วโมงจริงของอาจารย์
+    }
+
+    public function test_non_admin_cannot_access_workload_report(): void
+    {
+        $instructor = $this->makeUser('instructor');
+        $this->actingAs($instructor)->withSession(['active_role' => 'instructor']);
+
+        $this->get(route('admin.reports.workload'))->assertForbidden();
+        $this->get(route('admin.reports.workload.export'))->assertForbidden();
+    }
 }

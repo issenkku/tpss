@@ -138,6 +138,8 @@ Route::middleware(['auth', 'no-back'])->group(function () {
         Route::get('/admin/alerts', [AlertController::class, 'index'])->name('admin.alerts');
         Route::post('/admin/alerts/dismissed', [AlertController::class, 'updateDismissed'])->name('admin.alerts.dismissed');
         Route::get('/admin/audit-logs', [AuditLogController::class, 'index'])->name('admin.audit_logs.index');
+        Route::get('/admin/reports/workload', [\App\Http\Controllers\Admin\WorkloadReportController::class, 'index'])->name('admin.reports.workload');
+        Route::get('/admin/reports/workload/export', [\App\Http\Controllers\Admin\WorkloadReportController::class, 'export'])->name('admin.reports.workload.export');
         Route::post('/admin/master-data/departments', 'App\Http\Controllers\Admin\MasterDataController@storeDepartment')->name('admin.departments.store');
         Route::put('/admin/master-data/departments/{department}', 'App\Http\Controllers\Admin\MasterDataController@updateDepartment')->name('admin.departments.update');
         Route::delete('/admin/master-data/departments/{department}', 'App\Http\Controllers\Admin\MasterDataController@destroyDepartment')->name('admin.departments.destroy');

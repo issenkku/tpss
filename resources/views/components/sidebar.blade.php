@@ -449,15 +449,14 @@
                 <span class="nv-label">ตารางสอนที่เผยแพร่</span>
                 <span class="nv-dev-badge">กำลังพัฒนา</span>
             </span>
-            <span class="nv nv-disabled" role="link" aria-disabled="true" title="ฟีเจอร์อ่านและนำออกรายงานภาระงานสอนกำลังอยู่ในช่วงพัฒนา">
+            <a href="{{ route('admin.reports.workload') }}" class="nv {{ Request::routeIs('admin.reports.workload') ? 'on' : '' }}">
                 <svg class="nv-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="18" y1="20" x2="18" y2="10"></line>
                     <line x1="12" y1="20" x2="12" y2="4"></line>
                     <line x1="6" y1="20" x2="6" y2="14"></line>
                 </svg>
                 <span class="nv-label">รายงานภาระงาน</span>
-                <span class="nv-dev-badge">กำลังพัฒนา</span>
-            </span>
+            </a>
 
             {{-- 5. ระบบ --}}
             <div class="sb-sec" style="margin-top: 15px;">ระบบ</div>

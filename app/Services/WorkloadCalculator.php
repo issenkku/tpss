@@ -81,6 +81,44 @@ class WorkloadCalculator
         return $this->hoursFor($schedule);
     }
 
+    /**
+     * รวมชั่วโมงภาระงานรายอาจารย์ทั้งคณะในปีการศึกษา (approved + counts_toward_workload)
+     * single source สำหรับ widget dashboard (admin/staff/executive) + หน้ารายงานภาระงาน
+     *
+     * @return array<int, array{accrued: float, total: float, by_category: array<string, float>}>
+     */
+    public function facultyTotalsForYear(int $academicYearId, CarbonInterface|string|null $asOf = null): array
+    {
+        $today = $asOf ? CarbonImmutable::parse($asOf)->startOfDay() : CarbonImmutable::today();
+        $totals = [];
+
+        Schedule::query()
+            ->where('status', 'approved')
+            ->whereHas('activityType', fn ($q) => $q->where('counts_toward_workload', true))
+            ->whereHas('courseOffering', fn ($q) => $q->where('academic_year_id', $academicYearId))
+            ->with(['activityType', 'instructors:id'])
+            ->get()
+            ->each(function (Schedule $schedule) use ($today, &$totals): void {
+                $perInstructorTotal = $this->hoursForInstructor($schedule);
+                $perInstructorAccrued = $this->accruedHoursFor($schedule, $today);
+                $category = $schedule->activityType?->category ?: 'other';
+
+                foreach ($schedule->instructors as $instructor) {
+                    $totals[$instructor->id] ??= ['accrued' => 0.0, 'total' => 0.0, 'by_category' => []];
+                    $totals[$instructor->id]['total'] += $perInstructorTotal;
+                    $totals[$instructor->id]['accrued'] += $perInstructorAccrued;
+                    $totals[$instructor->id]['by_category'][$category]
+                        = ($totals[$instructor->id]['by_category'][$category] ?? 0.0) + $perInstructorTotal;
+                }
+            });
+
+        return array_map(fn (array $row) => [
+            'accrued' => round($row['accrued'], 1),
+            'total' => round($row['total'], 1),
+            'by_category' => array_map(fn ($hours) => round($hours, 1), $row['by_category']),
+        ], $totals);
+    }
+
     private function hoursPerDay(Schedule $schedule): float
     {
         if (! $schedule->start_time || ! $schedule->end_time) {

@@ -10,14 +10,12 @@ use App\Models\Course;
 use App\Models\CourseOffering;
 use App\Models\Curriculum;
 use App\Models\Room;
-use App\Models\Schedule;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\UserRole;
 use App\Services\AuditLogger;
 use App\Services\ScheduleConflictReadRepository;
 use App\Services\WorkloadCalculator;
-use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -164,39 +162,7 @@ class DashboardController extends Controller
      */
     private function instructorWorkloadHours(?AcademicYear $year): array
     {
-        if (! $year) {
-            return [];
-        }
-
-        $calculator = new WorkloadCalculator;
-        $today = CarbonImmutable::today();
-        $totals = [];
-
-        Schedule::query()
-            ->where('status', 'approved')
-            ->whereHas('activityType', fn ($q) => $q->where('counts_toward_workload', true))
-            ->whereHas('courseOffering', fn ($q) => $q->where('academic_year_id', $year->id))
-            ->with(['activityType', 'instructors:id'])
-            ->get()
-            ->each(function (Schedule $schedule) use ($calculator, $today, &$totals): void {
-                $perInstructorTotal = $calculator->hoursForInstructor($schedule);
-                $perInstructorAccrued = $calculator->accruedHoursFor($schedule, $today);
-                $category = $schedule->activityType?->category ?: 'other';
-
-                foreach ($schedule->instructors as $instructor) {
-                    $totals[$instructor->id] ??= ['accrued' => 0.0, 'total' => 0.0, 'by_category' => []];
-                    $totals[$instructor->id]['total'] += $perInstructorTotal;
-                    $totals[$instructor->id]['accrued'] += $perInstructorAccrued;
-                    $totals[$instructor->id]['by_category'][$category]
-                        = ($totals[$instructor->id]['by_category'][$category] ?? 0.0) + $perInstructorTotal;
-                }
-            });
-
-        return array_map(fn (array $row) => [
-            'accrued' => round($row['accrued'], 1),
-            'total' => round($row['total'], 1),
-            'by_category' => array_map(fn ($hours) => round($hours, 1), $row['by_category']),
-        ], $totals);
+        return $year ? (new WorkloadCalculator)->facultyTotalsForYear($year->id) : [];
     }
 
     public function maker()
