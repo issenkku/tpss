@@ -57,6 +57,9 @@ const status = result.exitCode === 0 ? 'Pass' : 'Fail';
 const payload = {
   token,
   testRunId,
+  // เวลาจริงที่รัน (ส่งให้ Apps Script ใช้กับคอลัมน์ Last Run แทนการ parse จาก testRunId)
+  recordedAt: startedAt.toISOString(),               // UTC ISO — ให้ Apps Script format เอง (Asia/Bangkok)
+  recordedAtLocal: formatBangkok(startedAt),         // พร้อมใช้: "DD/MM/YYYY HH:mm:ss" เวลาไทย
   module: moduleName,
   testType,
   command: args.command,
@@ -438,6 +441,20 @@ function buildTestRunId(date, moduleName, testType) {
   const safeType = testType.replace(/[^A-Za-z0-9]+/g, '').toUpperCase() || 'AUTO';
 
   return `TR-${stamp}-${safeModule}-${safeType}`;
+}
+
+function formatBangkok(date) {
+  // "DD/MM/YYYY HH:mm:ss" เวลาไทย (Asia/Bangkok) — ปี ค.ศ. (Apps Script +543 ได้ถ้าต้องการ พ.ศ.)
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  }).formatToParts(date).reduce((acc, part) => {
+    acc[part.type] = part.value;
+    return acc;
+  }, {});
+
+  return `${parts.day}/${parts.month}/${parts.year} ${parts.hour}:${parts.minute}:${parts.second}`;
 }
 
 function buildNotes(notes, exitCode, parsed) {
