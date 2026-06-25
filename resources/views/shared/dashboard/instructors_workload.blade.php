@@ -15,7 +15,8 @@
         }
 
         // ชั่วโมงจริงจาก schedule (M6) — accrued = สะสมถึงวันนี้, total = ทั้งปีที่อนุมัติ
-        $hours = $instructorHours[$instructor->id] ?? ['accrued' => 0, 'total' => 0];
+        $hours = $instructorHours[$instructor->id] ?? ['accrued' => 0, 'total' => 0, 'by_category' => []];
+        $practicumHours = $hours['by_category']['practicum'] ?? 0;
 
         return [
             'id' => $instructor->id,
@@ -25,6 +26,8 @@
             'department' => $profile?->department?->name ?: '-',
             'teachingHours' => number_format($hours['accrued'], 1),
             'totalHours' => number_format($hours['total'], 1),
+            'practicumHours' => number_format($practicumHours, 1),
+            'hasPracticum' => $practicumHours > 0,
             'hasQuota' => (bool) $hasQuota,
             'quota' => $quota,
             'period' => $period,
@@ -86,6 +89,9 @@
                         <td style="text-align: right;">
                             <div style="font-weight: 700; color: var(--fg-1); font-size: 14px; font-variant-numeric: tabular-nums;" x-text="row.teachingHours"></div>
                             <div style="font-size: 11px; color: var(--fg-3);">/ <span style="font-variant-numeric: tabular-nums;" x-text="row.totalHours"></span> ทั้งปี</div>
+                            <template x-if="row.hasPracticum">
+                                <div style="font-size: 10px; color: var(--fg-3); margin-top: 2px;">ฝึกปฏิบัติ <span style="font-variant-numeric: tabular-nums; font-weight: 600;" x-text="row.practicumHours"></span> ชม.</div>
+                            </template>
                         </td>
                         <td class="workload-quota-cell" style="text-align: right; padding-right: 24px;">
                             <template x-if="row.hasQuota">

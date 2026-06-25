@@ -181,17 +181,21 @@ class DashboardController extends Controller
             ->each(function (Schedule $schedule) use ($calculator, $today, &$totals): void {
                 $perInstructorTotal = $calculator->hoursForInstructor($schedule);
                 $perInstructorAccrued = $calculator->accruedHoursFor($schedule, $today);
+                $category = $schedule->activityType?->category ?: 'other';
 
                 foreach ($schedule->instructors as $instructor) {
-                    $totals[$instructor->id] ??= ['accrued' => 0.0, 'total' => 0.0];
+                    $totals[$instructor->id] ??= ['accrued' => 0.0, 'total' => 0.0, 'by_category' => []];
                     $totals[$instructor->id]['total'] += $perInstructorTotal;
                     $totals[$instructor->id]['accrued'] += $perInstructorAccrued;
+                    $totals[$instructor->id]['by_category'][$category]
+                        = ($totals[$instructor->id]['by_category'][$category] ?? 0.0) + $perInstructorTotal;
                 }
             });
 
         return array_map(fn (array $row) => [
             'accrued' => round($row['accrued'], 1),
             'total' => round($row['total'], 1),
+            'by_category' => array_map(fn ($hours) => round($hours, 1), $row['by_category']),
         ], $totals);
     }
 

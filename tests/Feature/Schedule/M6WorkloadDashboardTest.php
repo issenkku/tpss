@@ -98,4 +98,44 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
         $this->assertSame(3.5, $hours[$instructor->id]['total']);
         $response->assertSee('ภาระงานสอนของอาจารย์'); // widget reuse บนหน้าผู้บริหาร
     }
+
+    public function test_workload_splits_hours_by_activity_category(): void
+    {
+        [$head, $offering, $instructor, $group, $lecture, $room] = $this->makeReadyOffering();
+        $practicum = $this->makePracticumActivityType();
+
+        AcademicYear::where('id', $offering->academic_year_id)->update([
+            'start_date' => '2026-01-01',
+            'end_date' => '2026-12-31',
+        ]);
+
+        // บรรยาย 1 วัน 09:00–12:00 = 3 ชม.
+        $this->makeSchedule($offering, $lecture, $room, [$instructor], [$group], [
+            'status' => 'approved',
+            'start_date' => '2026-06-01',
+            'end_date' => '2026-06-01',
+            'start_time' => '09:00',
+            'end_time' => '12:00',
+        ]);
+
+        // ฝึกปฏิบัติ 2 วัน 08:00–16:00 = 16 ชม.
+        $this->makeSchedule($offering, $practicum, $room, [$instructor], [$group], [
+            'status' => 'approved',
+            'start_date' => '2026-06-02',
+            'end_date' => '2026-06-03',
+            'start_time' => '08:00',
+            'end_time' => '16:00',
+        ]);
+
+        $admin = $this->makeUser('admin');
+        $this->actingAs($admin)->withSession(['active_role' => 'admin']);
+
+        $response = $this->get(route('admin.dashboard'))->assertOk();
+        $hours = $response->viewData('instructorHours');
+
+        $this->assertSame(19.0, $hours[$instructor->id]['total']);            // 3 + 16
+        $this->assertSame(3.0, $hours[$instructor->id]['by_category']['lecture']);
+        $this->assertSame(16.0, $hours[$instructor->id]['by_category']['practicum']);
+        $response->assertSee('ฝึกปฏิบัติ'); // widget แสดงชั่วโมงฝึกปฏิบัติแยก
+    }
 }
