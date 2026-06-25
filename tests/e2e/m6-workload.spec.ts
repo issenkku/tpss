@@ -13,21 +13,21 @@ import { login } from './support/auth';
  * tests/Unit/WorkloadCalculatorTest.php + tests/Feature/Schedule/M6WorkloadDashboardTest.php
  */
 test.describe('M6 — Workload report', () => {
-  test('admin opens the workload report from the sidebar', async ({ page }, testInfo) => {
+  test('workload report page renders and its menu is enabled + active', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name === 'mobile-chrome', 'sidebar ซ่อนหลัง hamburger บน mobile');
     await login(page); // admin_01
+    await page.goto('/admin/reports/workload');
 
-    const nav = page.getByTestId('sidebar-workload-report');
-    await expect(nav).toBeVisible();
-    await Promise.all([
-      page.waitForURL(/\/admin\/reports\/workload/),
-      nav.click(),
-    ]);
-
+    // หน้ารายงาน render ครบ
     await expect(page.getByText('รายงานภาระงานสอน').first()).toBeVisible();
     await expect(page.getByTestId('workload-summary')).toBeVisible();
     await expect(page.getByTestId('workload-by-level')).toBeVisible();
     await expect(page.getByTestId('workload-export-csv')).toBeVisible();
+
+    // เมนู sidebar เปิดใช้งานแล้ว (เป็นลิงก์จริง ไม่ใช่ "กำลังพัฒนา") + active state
+    const nav = page.getByTestId('sidebar-workload-report');
+    await expect(nav).toBeVisible();
+    await expect(nav).toHaveAttribute('href', /\/admin\/reports\/workload/);
     await expect(nav).toHaveClass(/(^|\s)on(\s|$)/);
   });
 
