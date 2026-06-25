@@ -6,7 +6,10 @@
     $isWorkspace = (bool) ($isWorkspace ?? false);
     $activeOfferingCount = $availableOfferings->filter(fn ($offering) => $offering->academicYear?->phase === 'scheduling')->count();
     $academicYear = $courseOffering?->academicYear ?? $availableOfferings->first()?->academicYear;
-    $canEdit = $isWorkspace ? $activeOfferingCount > 0 : ($courseOffering && $academicYear?->phase === 'scheduling');
+    // ล็อก UI ให้ตรงกับ server guard: วิชาที่ส่งอนุมัติ (pending) หรืออนุมัติแล้ว (published) แก้ไม่ได้
+    $canEdit = $isWorkspace
+        ? $activeOfferingCount > 0
+        : ($courseOffering && $academicYear?->phase === 'scheduling' && ! $courseOffering->isLocked());
     // V2 delegation: หน้าจัดการรายวิชา (ชุดผู้สอน/อนุมัติ) เป็นของหัวหน้าวิชาที่เป็น coordinator เท่านั้น
     // อาจารย์/เจ้าหน้าที่ที่ช่วยจัดตารางจะไม่เห็นปุ่มนี้ (กด show แล้วโดน 403)
     $canManageOffering = ! $isWorkspace && $courseOffering
