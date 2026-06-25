@@ -5,18 +5,23 @@
         $employmentType = $profile?->employment_type;
         $hasQuota = $profile && $profile->teaching_pct;
         $quota = null;
+        $quotaValue = null;
         $period = null;
 
         if ($hasQuota) {
             $isGov = $employmentType === 'ข้าราชการ';
             $base = $isGov ? ($teachingWeeks * $hoursPerWeek / 2) : ($teachingWeeks * $hoursPerWeek);
             $period = $isGov ? '6 เดือน' : 'ปี';
-            $quota = number_format(($base * $profile->teaching_pct) / 100, 1);
+            $quotaValue = ($base * $profile->teaching_pct) / 100;
+            $quota = number_format($quotaValue, 1);
         }
 
         // ชั่วโมงจริงจาก schedule (M6) — accrued = สะสมถึงวันนี้, total = ทั้งปีที่อนุมัติ
         $hours = $instructorHours[$instructor->id] ?? ['accrued' => 0, 'total' => 0, 'by_category' => []];
         $practicumHours = $hours['by_category']['practicum'] ?? 0;
+
+        // M6-03 — % การใช้เทียบเกณฑ์ (กราฟแท่ง ใช้ vs เกณฑ์)
+        $usagePct = ($quotaValue && $quotaValue > 0) ? (int) round($hours['total'] / $quotaValue * 100) : null;
 
         return [
             'id' => $instructor->id,
@@ -28,6 +33,8 @@
             'totalHours' => number_format($hours['total'], 1),
             'practicumHours' => number_format($practicumHours, 1),
             'hasPracticum' => $practicumHours > 0,
+            'usagePct' => $usagePct,
+            'overQuota' => $usagePct !== null && $usagePct > 100,
             'hasQuota' => (bool) $hasQuota,
             'quota' => $quota,
             'period' => $period,
@@ -99,6 +106,12 @@
                                     <div style="font-weight: 700; color: var(--brand-navy); font-size: 14px;" x-text="row.quota"></div>
                                     <div style="font-size: 11px; color: var(--fg-3);">
                                         ชั่วโมงทำการ / <span x-text="row.period"></span>
+                                    </div>
+                                    <div class="wl-usage" :class="{ 'is-over': row.overQuota }" :title="`ใช้ไป ${row.usagePct}% ของเกณฑ์`">
+                                        <div class="wl-usage-track">
+                                            <div class="wl-usage-fill" :style="`width:${Math.min(100, row.usagePct)}%`"></div>
+                                        </div>
+                                        <span class="wl-usage-label"><span x-text="row.usagePct"></span>%</span>
                                     </div>
                                 </div>
                             </template>
@@ -367,6 +380,47 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+
+    /* M6-03 — แท่งภาระงาน ใช้ vs เกณฑ์ */
+    .wl-usage {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px;
+        margin-top: 5px;
+    }
+
+    .wl-usage-track {
+        width: 64px;
+        height: 6px;
+        border-radius: 999px;
+        background: color-mix(in oklch, var(--brand-navy) 12%, var(--surface));
+        overflow: hidden;
+    }
+
+    .wl-usage-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: var(--brand-navy);
+        transition: width 200ms ease;
+    }
+
+    .wl-usage-label {
+        min-width: 30px;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--fg-3);
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+    }
+
+    .wl-usage.is-over .wl-usage-fill {
+        background: var(--status-warning-fg);
+    }
+
+    .wl-usage.is-over .wl-usage-label {
+        color: var(--status-warning-fg);
     }
 
     .workload-pagination {

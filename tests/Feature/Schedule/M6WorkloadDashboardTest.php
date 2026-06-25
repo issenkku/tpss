@@ -3,6 +3,7 @@
 namespace Tests\Feature\Schedule;
 
 use App\Models\AcademicYear;
+use App\Models\SystemSetting;
 
 /**
  * M6 — กัน regression: widget admin ต้องโชว์ชั่วโมงสอน "จริง" จาก schedule
@@ -137,5 +138,41 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
         $this->assertSame(3.0, $hours[$instructor->id]['by_category']['lecture']);
         $this->assertSame(16.0, $hours[$instructor->id]['by_category']['practicum']);
         $response->assertSee('ฝึกปฏิบัติ'); // widget แสดงชั่วโมงฝึกปฏิบัติแยก
+    }
+
+    public function test_workload_bar_shows_usage_percent_vs_criteria(): void
+    {
+        // เกณฑ์เล็ก ๆ ให้คำนวณ % ชัด: base = 1 สัปดาห์ × 2 ชม. = 2 ชม.
+        SystemSetting::set('teaching_load_weeks', 1);
+        SystemSetting::set('teaching_quota_hours_per_week', 2);
+
+        [$head, $offering, $instructor, $group, $lecture, $room] = $this->makeReadyOffering();
+        AcademicYear::where('id', $offering->academic_year_id)->update([
+            'start_date' => '2026-01-01',
+            'end_date' => '2026-12-31',
+        ]);
+
+        // teaching_pct = 100 → เกณฑ์ = 2 ชม.
+        $instructor->instructorProfile()->update([
+            'teaching_pct' => 100,
+            'employment_type' => 'พนักงานมหาวิทยาลัย',
+        ]);
+
+        // กิจกรรม 3.5 ชม. > เกณฑ์ 2 → ใช้ไป 175% (เกินเกณฑ์)
+        $this->makeSchedule($offering, $lecture, $room, [$instructor], [$group], [
+            'status' => 'approved',
+            'start_date' => '2026-06-01',
+            'end_date' => '2026-06-01',
+            'start_time' => '09:00',
+            'end_time' => '12:30',
+        ]);
+
+        $admin = $this->makeUser('admin');
+        $this->actingAs($admin)->withSession(['active_role' => 'admin']);
+
+        $response = $this->get(route('admin.dashboard'))->assertOk();
+
+        $response->assertSee('wl-usage-fill'); // แท่งกราฟ render
+        $response->assertSee('175');           // % การใช้เทียบเกณฑ์ (ใน row data)
     }
 }
