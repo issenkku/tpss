@@ -13,6 +13,9 @@ import { login } from './support/auth';
  * tests/Unit/WorkloadCalculatorTest.php + tests/Feature/Schedule/M6WorkloadDashboardTest.php
  */
 test.describe('M6 — Workload report', () => {
+  // กัน cold-start: test แรกอาจยิงก่อน php artisan serve พร้อม (รัน spec เดี่ยวหลัง migrate:fresh)
+  test.describe.configure({ retries: 2 });
+
   test('workload report page renders and its menu is enabled + active', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name === 'mobile-chrome', 'sidebar ซ่อนหลัง hamburger บน mobile');
     await login(page); // admin_01
