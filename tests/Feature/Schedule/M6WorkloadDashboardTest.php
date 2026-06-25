@@ -194,11 +194,18 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
         $admin = $this->makeUser('admin');
         $this->actingAs($admin)->withSession(['active_role' => 'admin']);
 
-        $this->get(route('admin.reports.workload'))
+        $response = $this->get(route('admin.reports.workload'))
             ->assertOk()
             ->assertSee('รายงานภาระงานสอน')
             ->assertSee('นำออก Excel')
+            ->assertSee('data-testid="workload-summary"', false)
             ->assertViewHas('instructorHours');
+
+        // สรุปภาพรวมทั้งคณะ
+        $summary = $response->viewData('summary');
+        $this->assertSame(1, $summary['instructor_count']);
+        $this->assertSame(3.5, $summary['total_hours']);
+        $this->assertSame(0.0, $summary['practicum_hours']);
     }
 
     public function test_workload_report_exports_csv_with_bom(): void

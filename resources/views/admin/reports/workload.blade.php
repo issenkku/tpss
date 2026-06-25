@@ -26,6 +26,8 @@
             </a>
         </div>
 
+        @include('admin.reports._summary')
+
         @include('shared.dashboard.instructors_workload')
     </div>
 </x-app-layout>

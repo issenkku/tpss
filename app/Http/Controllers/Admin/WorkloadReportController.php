@@ -20,9 +20,48 @@ class WorkloadReportController extends Controller
     {
         [$year, $instructors, $instructorHours, $teachingWeeks, $hoursPerWeek] = $this->reportData();
 
+        $summary = $this->summarize($instructors, $instructorHours, $teachingWeeks, $hoursPerWeek);
+
         return view('admin.reports.workload', compact(
-            'year', 'instructors', 'instructorHours', 'teachingWeeks', 'hoursPerWeek'
+            'year', 'instructors', 'instructorHours', 'teachingWeeks', 'hoursPerWeek', 'summary'
         ));
+    }
+
+    /**
+     * สรุปภาพรวมภาระงานทั้งคณะ (จากข้อมูลรายอาจารย์ที่ดึงมาแล้ว — ไม่ query ซ้ำ)
+     *
+     * @return array{instructor_count: int, total_hours: float, practicum_hours: float, over_quota_count: int}
+     */
+    private function summarize(Collection $instructors, array $instructorHours, int $teachingWeeks, int $hoursPerWeek): array
+    {
+        $instructorCount = 0;
+        $totalHours = 0.0;
+        $practicumHours = 0.0;
+        $overQuota = 0;
+
+        foreach ($instructors as $instructor) {
+            $hours = $instructorHours[$instructor->id] ?? null;
+
+            if (! $hours || $hours['total'] <= 0) {
+                continue;
+            }
+
+            $instructorCount++;
+            $totalHours += $hours['total'];
+            $practicumHours += $hours['by_category']['practicum'] ?? 0;
+
+            $quota = $this->quotaFor($instructor, $teachingWeeks, $hoursPerWeek);
+            if ($quota && $quota > 0 && $hours['total'] > $quota) {
+                $overQuota++;
+            }
+        }
+
+        return [
+            'instructor_count' => $instructorCount,
+            'total_hours' => round($totalHours, 1),
+            'practicum_hours' => round($practicumHours, 1),
+            'over_quota_count' => $overQuota,
+        ];
     }
 
     public function export(): Response
