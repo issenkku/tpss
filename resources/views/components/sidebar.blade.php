@@ -449,7 +449,9 @@
                 <span class="nv-label">ตารางสอนที่เผยแพร่</span>
                 <span class="nv-dev-badge">กำลังพัฒนา</span>
             </span>
-            <a href="{{ route('admin.reports.workload') }}" class="nv {{ Request::routeIs('admin.reports.workload') ? 'on' : '' }}">
+            <a href="{{ route('admin.reports.workload') }}"
+               class="nv {{ Request::routeIs('admin.reports.workload') ? 'on' : '' }}"
+               data-testid="sidebar-workload-report">
                 <svg class="nv-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="18" y1="20" x2="18" y2="10"></line>
                     <line x1="12" y1="20" x2="12" y2="4"></line>
