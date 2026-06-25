@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Schedule;
 
+use App\Http\Controllers\Instructor\PaController;
 use App\Models\AcademicYear;
 use App\Models\SystemSetting;
 
@@ -240,6 +241,42 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
         $this->assertStringStartsWith("\xEF\xBB\xBF", $content);   // UTF-8 BOM (Excel ไทย)
         $this->assertStringContainsString('ชั่วโมงทั้งปี', $content); // header
         $this->assertStringContainsString('3.5', $content);          // ชั่วโมงจริงของอาจารย์
+    }
+
+    public function test_publishing_offering_finalizes_schedules_and_instructor_sees_workload(): void
+    {
+        [$head, $offering, $instructor, $group, $lecture, $room] = $this->makeReadyOffering();
+        AcademicYear::where('id', $offering->academic_year_id)->update([
+            'start_date' => '2026-01-01',
+            'end_date' => '2026-12-31',
+        ]);
+
+        // หัวหน้าวิชาสร้างกิจกรรม (draft) — ยังไม่อนุมัติ
+        $schedule = $this->makeSchedule($offering, $lecture, $room, [$instructor], [$group], [
+            'status' => 'draft',
+            'start_date' => '2026-06-01',
+            'end_date' => '2026-06-01',
+            'start_time' => '09:00',
+            'end_time' => '12:00',
+        ]);
+
+        // ก่อนอนุมัติ: อาจารย์เห็นภาระงาน = 0 (schedule ยัง draft)
+        $before = app(PaController::class)->workloadDataFor($instructor->fresh());
+        $this->assertSame(0.0, $before['approvedTeachingHours']);
+
+        // ผู้บริหารอนุมัติ (pending → published)
+        $offering->update(['approval_status' => 'pending']);
+        $exec = $this->makeUser('executive');
+        $this->actingAs($exec)->withSession(['active_role' => 'executive']);
+        $this->post(route('approver.offerings.approve', $offering))->assertRedirect();
+
+        // เผยแพร่แล้ว → schedule กลายเป็น approved
+        $this->assertSame('published', $offering->fresh()->approval_status);
+        $this->assertSame('approved', $schedule->fresh()->status);
+
+        // อาจารย์เปิดดูภาระงานตัวเอง → เห็นจริง 3 ชม.
+        $after = app(PaController::class)->workloadDataFor($instructor->fresh());
+        $this->assertSame(3.0, $after['approvedTeachingHours']);
     }
 
     public function test_non_admin_cannot_access_workload_report(): void
