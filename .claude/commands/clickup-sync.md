@@ -6,7 +6,7 @@
 
 ClickUp MCP ถูกล็อก premium → ใช้ **REST API** เสมอ (`https://api.clickup.com/api/v2/...`)
 
-- **Token:** ดึงจาก mcp config `~/.claude.json` → `mcpServers.clickup.env.CLICKUP_API_KEY` (อย่า hardcode/commit). ส่งใน header `Authorization`
+- **Token:** ดึงจาก mcp config `~/.claude.json` → `projects['<repo path>'].mcpServers.clickup.env.CLICKUP_API_KEY` (อย่า hardcode/commit). ส่งใน header `Authorization`. **ถ้า auth fail (`OAUTH_025`/401) = token ใน config หมดอายุ → ขอ token ใหม่จากผู้ใช้ แล้วเขียนทับใน config ด้วย string-replace (กัน formatting JSON พัง)**
 - **ข้อความไทย:** ส่งผ่าน **`python json.dumps`** (`PYTHONIOENCODING=utf-8`, print เป็น ASCII กัน cp1252 crash) — **ห้าม `curl -d '{...ไทย...}'`** เพราะ shell ทำไทยเพี้ยนเป็น `?????`
 - **IDs:** team `90182762652` · space `901811306058` (Project_Trss) · WP-07 evidence list `901818980114`
 - **Endpoints:** comment `POST /task/{id}/comment` · แก้ comment `PUT /comment/{id}` · ลบ `DELETE /comment/{id}` · status `PUT /task/{id}` body `{"status":"..."}` · evidence task `POST /list/{listId}/task` body `{"name","markdown_content"}`
