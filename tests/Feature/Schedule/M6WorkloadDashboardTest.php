@@ -70,4 +70,32 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
         $this->assertSame(2.0, $hours[$instructor->id]['total']);
         $this->assertSame(0.0, $hours[$instructor->id]['accrued']);
     }
+
+    public function test_executive_dashboard_shows_faculty_workload(): void
+    {
+        [$head, $offering, $instructor, $group, $activityType, $room] = $this->makeReadyOffering();
+
+        AcademicYear::where('id', $offering->academic_year_id)->update([
+            'start_date' => '2026-01-01',
+            'end_date' => '2026-12-31',
+        ]);
+
+        $this->makeSchedule($offering, $activityType, $room, [$instructor], [$group], [
+            'status' => 'approved',
+            'start_date' => '2026-06-01',
+            'end_date' => '2026-06-01',
+            'start_time' => '09:00',
+            'end_time' => '12:30',
+        ]);
+
+        $executive = $this->makeUser('executive');
+        $this->actingAs($executive)->withSession(['active_role' => 'executive']);
+
+        $response = $this->get(route('approver.dashboard'));
+        $response->assertOk();
+
+        $hours = $response->viewData('instructorHours');
+        $this->assertSame(3.5, $hours[$instructor->id]['total']);
+        $response->assertSee('ภาระงานสอนของอาจารย์'); // widget reuse บนหน้าผู้บริหาร
+    }
 }

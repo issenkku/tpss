@@ -17,6 +17,11 @@
 
         @include('shared.dashboard.offering_pipeline')
 
+        {{-- M6 — ภาระงานสอนรายอาจารย์ทั้งคณะ (read-only สำหรับผู้บริหาร) --}}
+        <div style="margin-bottom:16px;">
+            @include('shared.dashboard.instructors_workload')
+        </div>
+
         @if(session('success'))
             <div class="card" style="border-color:var(--status-success-border);background:var(--status-success-bg);margin-bottom:16px;">
                 <div style="padding:12px 18px;color:var(--status-success-fg);font-weight:600;" data-testid="approver-flash-success">{{ session('success') }}</div>

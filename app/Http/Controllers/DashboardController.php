@@ -230,7 +230,12 @@ class DashboardController extends Controller
             'rejected'  => $pipelineCounts['rejected']  ?? 0,
         ];
 
-        return view('executive.dashboard', compact('currentAcademicYear', 'conflictSummary', 'pendingOfferings', 'pipeline'));
+        // M6 — ผู้บริหารเห็นภาระงานสอนรายอาจารย์ทั้งคณะ (reuse widget เดียวกับ admin/staff)
+        ['instructors' => $instructors, 'teachingWeeks' => $teachingWeeks, 'hoursPerWeek' => $hoursPerWeek]
+            = $this->instructorWorkloadData();
+        $instructorHours = $this->instructorWorkloadHours($currentAcademicYear);
+
+        return view('executive.dashboard', compact('currentAcademicYear', 'conflictSummary', 'pendingOfferings', 'pipeline', 'instructors', 'teachingWeeks', 'hoursPerWeek', 'instructorHours'));
     }
 
     public function lecturer()
