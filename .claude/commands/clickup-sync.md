@@ -30,8 +30,10 @@ ClickUp MCP ถูกล็อก premium → ใช้ **REST API** เสม�
 - โพสต์ผ่าน python (ไทย-safe)
 - **เสร็จเมื่อ:** task สร้าง/อัปเดตสำเร็จ (ได้ id กลับมา)
 
-### 4. อัปเดตสถานะ + คอมเมนต์ sprint task
-- status → `in progress` / `complete` ตามจริง
-- คอมเมนต์สรุปงานที่เพิ่งเสร็จ (สิ่งที่ทำ + เทสที่ผ่าน + ข้อค้างถ้ามี) ผ่าน python
-- **verify:** GET comment กลับมาเช็คว่าไทยอ่านได้ ไม่เพี้ยน (ถ้าเพี้ยน = ลบ+โพสต์ใหม่ผ่าน python)
-- **เสร็จเมื่อ:** comment ปรากฏอ่านไทยได้ + status ตรงกับงานจริง
+### 4. อัปเดต status (subtask + sprint) + คอมเมนต์
+- **ต้องอัปเดต status field จริง ไม่ใช่แค่คอมเมนต์** — GET subtasks ของ sprint task (`?include_subtasks=true`) แล้วไล่ทีละตัว:
+  - user-story/dev-task ที่ **เสร็จ** → `Closed` · ที่ **กำลังทำ** → `in progress` · ยังไม่แตะ → คงเดิม
+  - sprint task เอง → `complete` ก็ต่อเมื่อ merge + ปิดครบ ไม่งั้น `in progress`
+  - status ที่ใช้ได้ใน Backlog list: `Open / to do / in progress / review / completed / Closed`
+- คอมเมนต์สรุปงานที่เพิ่งเสร็จ (สิ่งที่ทำ + เทสที่ผ่าน + ข้อค้าง) ผ่าน python · **verify:** GET comment เช็คไทยอ่านได้ (เพี้ยน = ลบ+โพสต์ใหม่)
+- **เสร็จเมื่อ:** subtask ที่เสร็จทุกตัวเป็น `Closed` (ไม่เหลือ to-do ของงานที่ทำจริงแล้ว) + sprint status ตรง + comment อ่านไทยได้
