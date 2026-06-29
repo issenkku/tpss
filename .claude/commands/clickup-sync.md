@@ -8,7 +8,7 @@ ClickUp MCP ถูกล็อก premium → ใช้ **REST API** เสม�
 
 - **Token:** ดึงจาก mcp config `~/.claude.json` → `projects['<repo path>'].mcpServers.clickup.env.CLICKUP_API_KEY` (อย่า hardcode/commit). ส่งใน header `Authorization`. **ถ้า auth fail (`OAUTH_025`/401) = token ใน config หมดอายุ → ขอ token ใหม่จากผู้ใช้ แล้วเขียนทับใน config ด้วย string-replace (กัน formatting JSON พัง)**
 - **ข้อความไทย:** ส่งผ่าน **`python json.dumps`** (`PYTHONIOENCODING=utf-8`, print เป็น ASCII กัน cp1252 crash) — **ห้าม `curl -d '{...ไทย...}'`** เพราะ shell ทำไทยเพี้ยนเป็น `?????`
-- **IDs:** team `90182762652` · space `901811306058` (Project_Trss) · WP-07 evidence list `901818980114`
+- **IDs:** team `90182762652` · space `901811306058` (Project_Trss) · WP-07 evidence list `901818980114` · Daily Updates task `86ey35uuj`
 - **Endpoints:** comment `POST /task/{id}/comment` · แก้ comment `PUT /comment/{id}` · ลบ `DELETE /comment/{id}` · status `PUT /task/{id}` body `{"status":"..."}` · evidence task `POST /list/{listId}/task` body `{"name","markdown_content"}`
 - รายละเอียดเพิ่ม: memory `clickup-rest-thai-encoding`
 
@@ -37,3 +37,13 @@ ClickUp MCP ถูกล็อก premium → ใช้ **REST API** เสม�
   - status ที่ใช้ได้ใน Backlog list: `Open / to do / in progress / review / completed / Closed`
 - คอมเมนต์สรุปงานที่เพิ่งเสร็จ (สิ่งที่ทำ + เทสที่ผ่าน + ข้อค้าง) ผ่าน python · **verify:** GET comment เช็คไทยอ่านได้ (เพี้ยน = ลบ+โพสต์ใหม่)
 - **เสร็จเมื่อ:** subtask ที่เสร็จทุกตัวเป็น `Closed` (ไม่เหลือ to-do ของงานที่ทำจริงแล้ว) + sprint status ตรง + comment อ่านไทยได้
+
+### 5. อัปเดต Daily Update (standup)
+- เติม **บล็อกวันใหม่ไว้บนสุด** ของ task `📋 Daily Updates — Phase 2` (id `86ey35uuj`):
+  GET description เดิม → prepend บล็อกใหม่ (คั่นด้วย `---`) → `PUT /task/{id}` body `{"markdown_content": ...}` ผ่าน python (ไทย-safe)
+- บล็อกใหม่ **ต้องมี 4 หัวข้อชัดเจน** (โครง Scrum standup):
+  - **Done** — เมื่อวานทำอะไรเสร็จไปแล้วบ้าง
+  - **Doing** — วันนี้ตั้งใจจะทำอะไรต่อ
+  - **Blocker** — มีอะไรติดขัดจนทำงานต่อไม่ได้ไหม (ไม่มี = เขียน "ไม่มี")
+  - **Questions** — มีคำถามต้องถาม PO/ลูกค้า/คนอื่นไหม (ไม่มี = เขียน "ไม่มี")
+- **เสร็จเมื่อ:** มีบล็อกวันใหม่ครบ 4 หัวข้อ อยู่บนสุด อ่านไทยได้
