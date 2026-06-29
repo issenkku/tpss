@@ -31,6 +31,7 @@
             'department' => $profile?->department?->name ?: '-',
             'teachingHours' => number_format($hours['accrued'], 1),
             'totalHours' => number_format($hours['total'], 1),
+            'sortHours' => (float) $hours['total'],
             'practicumHours' => number_format($practicumHours, 1),
             'hasPracticum' => $practicumHours > 0,
             'usagePct' => $usagePct,
@@ -40,7 +41,13 @@
             'period' => $period,
             'searchText' => mb_strtolower(trim(($instructor->employee_id ?? '') . ' ' . $instructor->formatted_name)),
         ];
-    });
+    })
+    // A1 — เรียงภาระงานมาก→น้อย ให้คนสอนเยอะ/เกินเกณฑ์ขึ้นก่อน (ชื่อเป็นตัวรอง)
+    ->sortBy(fn ($row) => [-$row['sortHours'], $row['name']])
+    ->values();
+
+    // A3 — มีใครมีภาระงานจริงไหม (กัน zero-state กำแพง 0)
+    $hasWorkload = $workloadRows->contains(fn ($row) => $row['sortHours'] > 0);
 
     $workloadPagerEnabled = isset($workloadPageSize);
     $workloadPageSize = (int) ($workloadPageSize ?? max($workloadRows->count(), 1));
@@ -64,6 +71,7 @@
         </div>
     </div>
 
+    @if($hasWorkload)
     <div class="table-responsive">
         <table>
             <colgroup>
@@ -84,7 +92,7 @@
             </thead>
             <tbody>
                 <template x-for="row in pagedRows" :key="row.id">
-                    <tr>
+                    <tr :class="{ 'wl-row-over': row.overQuota }">
                         <td class="workload-code-cell" style="font-weight: 600; color: var(--fg-2);" x-text="row.employeeId"></td>
                         <td class="workload-name-cell">
                             <div class="workload-primary-text" style="font-weight: 600; color: var(--fg-1);" x-text="row.name"></div>
@@ -130,8 +138,20 @@
             </tbody>
         </table>
     </div>
+    @else
+        <div class="workload-empty" data-testid="workload-empty-state">
+            <div class="workload-empty-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 11l3 3L22 4"></path>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
+            </div>
+            <div class="workload-empty-title">ยังไม่มีภาระงานให้แสดง</div>
+            <div class="workload-empty-desc">ตัวเลขจะปรากฏเมื่อมีรายวิชาที่ผู้บริหาร<strong>อนุมัติแล้ว</strong> — ตารางที่ยังเป็นร่างหรือรออนุมัติจะยังไม่ถูกนับ</div>
+        </div>
+    @endif
 
-    <div class="workload-pagination" x-show="{{ $workloadPagerEnabled ? 'rows.length > 0' : 'false' }}">
+    <div class="workload-pagination" x-show="{{ $workloadPagerEnabled && $hasWorkload ? 'rows.length > 0' : 'false' }}">
         <div class="workload-pagination-meta">
             <span class="workload-pagination-summary" x-show="totalPages > 1">
                 แสดง <span x-text="rangeStart"></span>–<span x-text="rangeEnd"></span> จาก <span x-text="filteredRows.length.toLocaleString()"></span> รายการ
@@ -421,6 +441,53 @@
 
     .wl-usage.is-over .wl-usage-label {
         color: var(--status-warning-fg);
+    }
+
+    /* A2 — แถวเกินเกณฑ์: ขอบซ้าย + พื้นโทนเตือน (semantic signal เท่านั้น) */
+    .workload-card tbody tr.wl-row-over {
+        background: var(--status-warning-bg);
+        box-shadow: inset 3px 0 0 var(--status-warning-fg);
+    }
+
+    .workload-card tbody tr.wl-row-over:hover {
+        background: color-mix(in oklch, var(--status-warning-fg) 12%, var(--surface));
+    }
+
+    /* A3 — zero-state (flat, navy-muted) */
+    .workload-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 8px;
+        padding: 44px 24px;
+    }
+
+    .workload-empty-icon {
+        width: 52px;
+        height: 52px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        background: color-mix(in oklch, var(--brand-navy) 8%, var(--surface));
+        color: color-mix(in oklch, var(--brand-navy) 65%, var(--fg-3));
+        border: 1px solid color-mix(in oklch, var(--brand-navy) 16%, var(--border));
+    }
+
+    .workload-empty-title {
+        margin-top: 4px;
+        font-family: var(--font-display);
+        font-size: 17px;
+        font-weight: 800;
+        color: var(--fg-1);
+    }
+
+    .workload-empty-desc {
+        max-width: 460px;
+        font-size: 13px;
+        color: var(--fg-3);
+        line-height: 1.6;
     }
 
     .workload-pagination {

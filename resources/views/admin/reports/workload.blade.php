@@ -26,7 +26,9 @@
             </a>
         </div>
 
-        @include('admin.reports._summary')
+        @if(($summary['total_hours'] ?? 0) > 0)
+            @include('admin.reports._summary')
+        @endif
 
         @include('shared.dashboard.instructors_workload')
     </div>

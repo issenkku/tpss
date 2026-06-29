@@ -279,6 +279,21 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
         $this->assertSame(3.0, $after['approvedTeachingHours']);
     }
 
+    public function test_workload_report_shows_empty_state_when_nothing_approved(): void
+    {
+        // มีอาจารย์ แต่ไม่มีตารางที่ approved → ต้องขึ้น zero-state อธิบาย ไม่ใช่กำแพง 0
+        [$head, $offering, $instructor] = $this->makeReadyOffering();
+
+        $admin = $this->makeUser('admin');
+        $this->actingAs($admin)->withSession(['active_role' => 'admin']);
+
+        $this->get(route('admin.reports.workload'))
+            ->assertOk()
+            ->assertSee('data-testid="workload-empty-state"', false)
+            ->assertSee('ยังไม่มีภาระงานให้แสดง')
+            ->assertDontSee('data-testid="workload-summary"', false); // ไม่โชว์การ์ดสรุป 0
+    }
+
     public function test_non_admin_cannot_access_workload_report(): void
     {
         $instructor = $this->makeUser('instructor');
