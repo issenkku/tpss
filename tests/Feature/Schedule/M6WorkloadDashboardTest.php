@@ -99,6 +99,12 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
         $hours = $response->viewData('instructorHours');
         $this->assertSame(3.5, $hours[$instructor->id]['total']);
         $response->assertSee('ภาระงานสอนของอาจารย์'); // widget reuse บนหน้าผู้บริหาร
+
+        // M6 เฟส B — ผู้บริหารเห็นการ์ดสรุปด้วย (ไม่ใช่ตารางดิบอย่างเดียว)
+        $response->assertSee('data-testid="workload-summary"', false);
+        $summary = $response->viewData('summary');
+        $this->assertSame(1, $summary['instructor_count']);
+        $this->assertSame(3.5, $summary['total_hours']);
     }
 
     public function test_workload_splits_hours_by_activity_category(): void

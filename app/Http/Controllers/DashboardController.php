@@ -200,12 +200,18 @@ class DashboardController extends Controller
             'rejected'  => $pipelineCounts['rejected']  ?? 0,
         ];
 
-        // M6 — ผู้บริหารเห็นภาระงานสอนรายอาจารย์ทั้งคณะ (reuse widget เดียวกับ admin/staff)
+        // M6 — ผู้บริหารเห็นภาระงานสอนทั้งคณะ: การ์ดสรุป + ตาราง (เรียง/ไฮไลต์เกินเกณฑ์)
         ['instructors' => $instructors, 'teachingWeeks' => $teachingWeeks, 'hoursPerWeek' => $hoursPerWeek]
             = $this->instructorWorkloadData();
         $instructorHours = $this->instructorWorkloadHours($currentAcademicYear);
 
-        return view('executive.dashboard', compact('currentAcademicYear', 'conflictSummary', 'pendingOfferings', 'pipeline', 'instructors', 'teachingWeeks', 'hoursPerWeek', 'instructorHours'));
+        $calculator = new WorkloadCalculator;
+        $summary = $calculator->facultySummary($instructors, $instructorHours, $teachingWeeks, $hoursPerWeek);
+        $byLevel = $currentAcademicYear
+            ? $calculator->facultyHoursByEducationLevel($currentAcademicYear->id)
+            : ['bachelor' => 0, 'master' => 0, 'doctorate' => 0];
+
+        return view('executive.dashboard', compact('currentAcademicYear', 'conflictSummary', 'pendingOfferings', 'pipeline', 'instructors', 'teachingWeeks', 'hoursPerWeek', 'instructorHours', 'summary', 'byLevel'));
     }
 
     public function lecturer()

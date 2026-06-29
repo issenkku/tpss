@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\InstructorProfile;
 use App\Models\Schedule;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Collection;
 
 /**
  * แหล่งคำนวณชั่วโมงภาระงานจาก schedule จริง (M6) — single source of truth
@@ -149,6 +151,60 @@ class WorkloadCalculator
             });
 
         return array_map(fn ($hours) => round($hours, 1), $totals);
+    }
+
+    /**
+     * เกณฑ์ชั่วโมงสอนของอาจารย์ 1 คน = ฐาน (สัปดาห์ × ชม./สัปดาห์ · ข้าราชการ ÷2) × teaching_pct
+     * null = ไม่ได้กรอก % การสอน
+     */
+    public function quotaFor(?InstructorProfile $profile, int $teachingWeeks, int $hoursPerWeek): ?float
+    {
+        if (! $profile || ! $profile->teaching_pct) {
+            return null;
+        }
+
+        $isGov = $profile->employment_type === 'ข้าราชการ';
+        $base = $isGov ? ($teachingWeeks * $hoursPerWeek / 2) : ($teachingWeeks * $hoursPerWeek);
+
+        return ($base * $profile->teaching_pct) / 100;
+    }
+
+    /**
+     * สรุปภาพรวมภาระงานทั้งคณะ (จากข้อมูลรายอาจารย์ที่ดึงมาแล้ว — ไม่ query ซ้ำ)
+     * ใช้ร่วม: หน้ารายงาน (admin) + dashboard ผู้บริหาร
+     *
+     * @return array{instructor_count: int, total_hours: float, practicum_hours: float, over_quota_count: int}
+     */
+    public function facultySummary(Collection $instructors, array $instructorHours, int $teachingWeeks, int $hoursPerWeek): array
+    {
+        $count = 0;
+        $total = 0.0;
+        $practicum = 0.0;
+        $over = 0;
+
+        foreach ($instructors as $instructor) {
+            $hours = $instructorHours[$instructor->id] ?? null;
+
+            if (! $hours || $hours['total'] <= 0) {
+                continue;
+            }
+
+            $count++;
+            $total += $hours['total'];
+            $practicum += $hours['by_category']['practicum'] ?? 0;
+
+            $quota = $this->quotaFor($instructor->instructorProfile, $teachingWeeks, $hoursPerWeek);
+            if ($quota && $quota > 0 && $hours['total'] > $quota) {
+                $over++;
+            }
+        }
+
+        return [
+            'instructor_count' => $count,
+            'total_hours' => round($total, 1),
+            'practicum_hours' => round($practicum, 1),
+            'over_quota_count' => $over,
+        ];
     }
 
     private function hoursPerDay(Schedule $schedule): float

@@ -17,8 +17,11 @@
 
         @include('shared.dashboard.offering_pipeline')
 
-        {{-- M6 — ภาระงานสอนรายอาจารย์ทั้งคณะ (read-only สำหรับผู้บริหาร) --}}
+        {{-- M6 — ภาระงานสอนทั้งคณะ (read-only): การ์ดสรุป + ตารางเรียง/ไฮไลต์เกินเกณฑ์ --}}
         <div style="margin-bottom:16px;">
+            @if(($summary['total_hours'] ?? 0) > 0)
+                @include('admin.reports._summary')
+            @endif
             @include('shared.dashboard.instructors_workload')
         </div>
 
