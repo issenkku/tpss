@@ -7,13 +7,14 @@ use App\Models\AcademicYear;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\WorkloadCalculator;
+use App\Services\WorkloadReportExporter;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * M6-05 — หน้ารายงานภาระงานสอน (admin read-only) + นำออก Excel (CSV)
+ * M6-05 — หน้ารายงานภาระงานสอน (admin read-only) + นำออก Excel (.xlsx)
  * ใช้ตัวเลขจริงจาก WorkloadCalculator::facultyTotalsForYear (single source เดียวกับ dashboard)
  */
 class WorkloadReportController extends Controller
@@ -52,44 +53,14 @@ class WorkloadReportController extends Controller
         ]);
     }
 
-    public function export(Request $request): Response
+    public function export(Request $request, WorkloadReportExporter $exporter): StreamedResponse
     {
         $data = $this->reportData($request, includeCourseDetails: true);
 
         $termSuffix = $data['termSequence'] ? '-term-' . $data['termSequence'] : '';
-        $filename = 'workload-report-' . ($data['year']?->name ?? 'all') . $termSuffix . '.csv';
-        $calculator = new WorkloadCalculator;
+        $filename = 'workload-report-' . ($data['year']?->name ?? 'all') . $termSuffix . '.xlsx';
 
-        $handle = fopen('php://temp', 'r+');
-        fputcsv($handle, ['รหัส', 'ชื่อ-นามสกุล', 'ภาควิชา', 'ชั่วโมงสะสมถึงวันนี้', 'ชั่วโมงตามช่วงที่เลือก', 'เฉลี่ยต่อสัปดาห์ (ชม.)', 'ชั่วโมงฝึกปฏิบัติ', 'เกณฑ์ทั้งปี (ชม.)', 'ใช้ไปเทียบเกณฑ์ทั้งปี (%)']);
-
-        foreach ($data['instructors'] as $instructor) {
-            $hours = $data['instructorHours'][$instructor->id] ?? ['accrued' => 0, 'total' => 0, 'by_category' => []];
-            $quota = $calculator->quotaFor($instructor->instructorProfile, $data['teachingWeeks'], $data['hoursPerWeek']);
-            $usagePct = ($quota && $quota > 0) ? (int) round($hours['total'] / $quota * 100) : null;
-
-            fputcsv($handle, [
-                $instructor->employee_id ?: '-',
-                $instructor->formatted_name,
-                $instructor->instructorProfile?->department?->name ?? '-',
-                $hours['accrued'],
-                $hours['total'],
-                $data['instructorWeeklyAverages'][$instructor->id] ?? 0,
-                $hours['by_category']['practicum'] ?? 0,
-                $quota !== null ? round($quota, 1) : '-',
-                $usagePct ?? '-',
-            ]);
-        }
-
-        rewind($handle);
-        // UTF-8 BOM ให้ Excel (Windows ภาษาไทย) อ่านไม่เพี้ยน
-        $csv = "\xEF\xBB\xBF" . stream_get_contents($handle);
-        fclose($handle);
-
-        return response($csv, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-        ]);
+        return $exporter->download($data, $filename);
     }
 
     /**

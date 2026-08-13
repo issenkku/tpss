@@ -14,6 +14,9 @@ use App\Models\Term;
 use App\Models\User;
 use App\Services\WorkloadCalculator;
 use Database\Seeders\WorkloadPagePreviewSeeder;
+use Illuminate\Testing\TestResponse;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
+use ZipArchive;
 
 /**
  * M6 — กัน regression: widget admin ต้องโชว์ชั่วโมงสอน "จริง" จาก schedule
@@ -365,7 +368,8 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
         $this->assertSame(8, Schedule::query()->where('remark', '[workload-page-preview]')->count());
     }
 
-    public function test_workload_report_exports_csv_with_bom(): void
+    #[RunInSeparateProcess]
+    public function test_workload_report_exports_formatted_xlsx_workbook(): void
     {
         [$head, $offering, $instructor, $group, $lecture, $room] = $this->makeReadyOffering();
         $offering->update(['teaching_weeks' => 10]);
@@ -385,23 +389,24 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
         $this->actingAs($admin)->withSession(['active_role' => 'admin']);
 
         $response = $this->get(route('admin.reports.workload.export'));
-        $response->assertOk();
-        $this->assertStringContainsString('text/csv', $response->headers->get('Content-Type'));
+        $response->assertOk()->assertDownload('workload-report-' . $offering->academicYear->name . '.xlsx');
+        $this->assertStringContainsString(
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            $response->headers->get('Content-Type')
+        );
 
-        $content = $response->getContent();
-        $this->assertStringStartsWith("\xEF\xBB\xBF", $content);   // UTF-8 BOM (Excel ไทย)
-        $this->assertStringContainsString('ชั่วโมงตามช่วงที่เลือก', $content); // header
-        $this->assertStringContainsString('เฉลี่ยต่อสัปดาห์ (ชม.)', $content);
-        $this->assertStringContainsString('3.5', $content);          // ชั่วโมงจริงของอาจารย์
-
-        $csv = preg_replace('/^\xEF\xBB\xBF/', '', $content);
-        $rows = array_values(array_filter(array_map(
-            'str_getcsv',
-            preg_split('/\r\n|\r|\n/', trim($csv))
-        )));
-        $this->assertSame('0.1', $rows[1][5]);
+        $xlsx = $this->readXlsxResponse($response);
+        $this->assertStringContainsString('รายงานภาระงานสอน', $xlsx['sharedStrings']);
+        $this->assertStringContainsString('ปีการศึกษา ' . $offering->academicYear->name, $xlsx['sharedStrings']);
+        $this->assertStringContainsString('ชั่วโมงตามช่วงที่เลือก', $xlsx['sharedStrings']);
+        $this->assertStringContainsString('เฉลี่ยต่อสัปดาห์ (ชม.)', $xlsx['sharedStrings']);
+        $this->assertSame(3.5, $this->xlsxNumericCell($xlsx['sheet'], 'E5'));
+        $this->assertSame(0.1, $this->xlsxNumericCell($xlsx['sheet'], 'F5'));
+        $this->assertStringContainsString('<f>IFERROR(E5/H5,0)</f>', $xlsx['sheet']);
+        $this->assertStringContainsString('topLeftCell="A5"', $xlsx['sheet']);
     }
 
+    #[RunInSeparateProcess]
     public function test_workload_report_filters_by_academic_year_and_term_and_preserves_export_filters(): void
     {
         [$head, $currentOffering, $instructor, $currentGroup, $lecture, $room] = $this->makeReadyOffering();
@@ -505,14 +510,9 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
         $this->assertSame('2568', $response->viewData('year')->name);
 
         $export = $this->get(route('admin.reports.workload.export', $filters))->assertOk();
-        $content = $export->getContent();
-        $csv = preg_replace('/^\xEF\xBB\xBF/', '', $content);
-        $rows = array_values(array_filter(array_map(
-            'str_getcsv',
-            preg_split('/\r\n|\r|\n/', trim($csv))
-        )));
-        $this->assertSame('5.5', $rows[1][4]);
-        $this->assertStringContainsString('workload-report-2568-term-1.csv', $export->headers->get('Content-Disposition'));
+        $xlsx = $this->readXlsxResponse($export);
+        $this->assertSame(5.5, $this->xlsxNumericCell($xlsx['sheet'], 'E5'));
+        $this->assertStringContainsString('workload-report-2568-term-1.xlsx', $export->headers->get('Content-Disposition'));
     }
 
     public function test_publishing_offering_finalizes_schedules_and_instructor_sees_workload(): void
@@ -583,7 +583,7 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
             ->assertOk()
             ->assertSee('data-testid="sidebar-staff-workload-report"', false)
             ->assertSee('data-testid="workload-course-details-toggle"', false)
-            ->assertDontSee('data-testid="workload-export-csv"', false)
+            ->assertDontSee('data-testid="workload-export-xlsx"', false)
             ->assertDontSee('และนำออกเป็นไฟล์ Excel ได้');
         $this->get(route('admin.reports.workload.export'))->assertForbidden();
 
@@ -593,7 +593,7 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
             ->assertOk()
             ->assertSee('data-testid="sidebar-executive-workload-report"', false)
             ->assertSee('data-testid="workload-course-details-toggle"', false)
-            ->assertDontSee('data-testid="workload-export-csv"', false)
+            ->assertDontSee('data-testid="workload-export-xlsx"', false)
             ->assertDontSee('และนำออกเป็นไฟล์ Excel ได้');
         $this->get(route('admin.reports.workload.export'))->assertForbidden();
     }
@@ -606,5 +606,40 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
         $this->get(route('admin.reports.workload'))->assertForbidden();
         $this->get(route('staff.reports.workload'))->assertForbidden();
         $this->get(route('approver.reports.workload'))->assertForbidden();
+    }
+
+    /** @return array{sharedStrings: string, sheet: string} */
+    private function readXlsxResponse(TestResponse $response): array
+    {
+        $path = tempnam(sys_get_temp_dir(), 'workload-report-');
+        $content = $response->streamedContent();
+        $this->assertStringStartsWith('PK', $content);
+        file_put_contents($path, $content);
+
+        try {
+            $zip = new ZipArchive;
+            $this->assertTrue($zip->open($path) === true);
+            $sharedStrings = $zip->getFromName('xl/sharedStrings.xml');
+            $sheet = $zip->getFromName('xl/worksheets/sheet1.xml');
+            $zip->close();
+
+            $this->assertIsString($sharedStrings);
+            $this->assertIsString($sheet);
+
+            return compact('sharedStrings', 'sheet');
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    private function xlsxNumericCell(string $sheetXml, string $coordinate): float
+    {
+        $xml = simplexml_load_string($sheetXml);
+        $xml->registerXPathNamespace('x', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+        $cells = $xml->xpath("//x:c[@r='{$coordinate}']/x:v");
+
+        $this->assertNotEmpty($cells, "ไม่พบเซลล์ {$coordinate} ในไฟล์ XLSX");
+
+        return (float) ((string) $cells[0]);
     }
 }

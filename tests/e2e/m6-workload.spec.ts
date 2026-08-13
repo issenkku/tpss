@@ -7,9 +7,9 @@ import { login } from './support/auth';
  * Smoke หน้าจอ (deterministic ไม่ผูกข้อมูล seed):
  *  - เมนู "รายงานภาระงาน" เปิดใช้งานแล้ว (เลิก กำลังพัฒนา) → คลิกแล้วเข้าหน้ารายงาน
  *  - หน้ารายงานมีการ์ดสรุป + breakdown ระดับหลักสูตร + ตารางรายอาจารย์ + ปุ่ม export
- *  - ปุ่ม export ดาวน์โหลดไฟล์ CSV ได้
+ *  - ปุ่ม export ดาวน์โหลดไฟล์ XLSX ได้
  *
- * ส่วน logic คำนวณชั่วโมง/accrual/by-category/by-level + CSV+BOM ครอบใน
+ * ส่วน logic คำนวณชั่วโมง/accrual/by-category/by-level + XLSX ครอบใน
  * tests/Unit/WorkloadCalculatorTest.php + tests/Feature/Schedule/M6WorkloadDashboardTest.php
  */
 test.describe('M6 — Workload report', () => {
@@ -29,7 +29,7 @@ test.describe('M6 — Workload report', () => {
     if (await summary.isVisible()) {
       await expect(page.getByTestId('workload-by-level')).toBeVisible();
     }
-    await expect(page.getByTestId('workload-export-csv')).toBeVisible();
+    await expect(page.getByTestId('workload-export-xlsx')).toBeVisible();
 
     // เมนู sidebar เปิดใช้งานแล้ว (เป็นลิงก์จริง ไม่ใช่ "กำลังพัฒนา") + active state
     const nav = page.getByTestId('sidebar-workload-report');
@@ -38,16 +38,16 @@ test.describe('M6 — Workload report', () => {
     await expect(nav).toHaveClass(/(^|\s)on(\s|$)/);
   });
 
-  test('export button downloads a CSV file', async ({ page }) => {
+  test('export button downloads an XLSX file', async ({ page }) => {
     await login(page);
     await page.goto('/admin/reports/workload');
 
     const downloadPromise = page.waitForEvent('download');
-    await page.getByTestId('workload-export-csv').click();
+    await page.getByTestId('workload-export-xlsx').click();
     const download = await downloadPromise;
 
     expect(download.suggestedFilename()).toContain('workload-report');
-    expect(download.suggestedFilename()).toMatch(/\.csv$/);
+    expect(download.suggestedFilename()).toMatch(/\.xlsx$/);
   });
 
   test('filter select arrow does not repeat across the control on hover', async ({ page }) => {
@@ -82,7 +82,7 @@ test.describe('M6 — Workload report', () => {
 
     await expect(page.locator('#tpss-filter-status')).toHaveText('กรองข้อมูลเรียบร้อยแล้ว');
     await expect(page).toHaveURL(/term_sequence=\d+/);
-    await expect(page.getByTestId('workload-export-csv')).toHaveAttribute('href', /term_sequence=\d+/);
+    await expect(page.getByTestId('workload-export-xlsx')).toHaveAttribute('href', /term_sequence=\d+/);
     expect(await page.evaluate(() => document.body.dataset.asyncFilterShell)).toBe('stable');
     await expect(page.getByRole('button', { name: 'แสดงผล' })).toHaveCount(0);
   });
