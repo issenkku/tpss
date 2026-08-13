@@ -39,7 +39,10 @@
         @include('shared.dashboard.admin_visual_overview')
 
         <section class="admin-section">
-            @include('shared.dashboard.instructors_workload', ['workloadPageSize' => 5])
+            @include('shared.dashboard.instructors_workload', [
+                'workloadPageSize' => 5,
+                'workloadReportUrl' => route('admin.reports.workload'),
+            ])
         </section>
 
         <section class="admin-section">

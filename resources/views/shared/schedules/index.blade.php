@@ -5671,6 +5671,7 @@
         }
     </style>
 
+    <x-async-filter scope="teaching-schedule">
     <div
         class="schedule-shell {{ session('active_role') === 'course_head' ? 'is-course-head-schedule' : '' }}"
         data-schedule-shell
@@ -6305,9 +6306,7 @@
                 } else {
                     url.searchParams.delete('include_weekends');
                 }
-                sessionStorage.setItem('tpss-schedule-scroll-y', window.scrollY);
-                sessionStorage.setItem('tpss-schedule-scroll-height', document.documentElement.scrollHeight);
-                window.location.href = url.toString();
+                window.tpssAsyncFilter.navigate(url, { scope: 'teaching-schedule' });
             },
             jumpToGridDate(value) {
                 const iso = this.thaiDateToIso(value);
@@ -6350,9 +6349,7 @@
             toggleWeekends() {
                 if (this.schedulePeriod !== 'week') return;
                 const url = new URL(@js($weekendToggleUrl), window.location.origin);
-                sessionStorage.setItem('tpss-schedule-scroll-y', window.scrollY);
-                sessionStorage.setItem('tpss-schedule-scroll-height', document.documentElement.scrollHeight);
-                window.location.href = url.toString();
+                window.tpssAsyncFilter.navigate(url, { scope: 'teaching-schedule' });
             },
             // แปลงค่าจากช่อง x-thai-date-input (วว/ดด/พ.ศ.) เป็น ISO Y-m-d ก่อนส่งเข้า URL
             // mirror logic ของ App\Support\ThaiDate::parseToIso ฝั่ง client
@@ -6952,7 +6949,9 @@
                     @endif
                 </div>
                 <div class="offering-selector-wrapper">
-                    <select id="offering-selector" class="offering-select-control" onchange="sessionStorage.setItem('tpss-schedule-scroll-y', window.scrollY); window.location.href = this.value">
+                    <select id="offering-selector"
+                            class="offering-select-control"
+                            onchange="window.tpssAsyncFilter.navigate(this.value, { scope: 'teaching-schedule', source: this })">
                         @php
                             $selectorDate = ($selectedScheduleDate ?? $weekStart)->toDateString();
                             $selectorPeriod = $schedulePeriod ?? 'week';
@@ -7031,7 +7030,7 @@
                 } else {
                     url.searchParams.delete('instructor_id');
                 }
-                window.location.href = url.toString();
+                window.tpssAsyncFilter.navigate(url, { scope: 'teaching-schedule' });
             }
 
             /**
@@ -7044,7 +7043,7 @@
                 url.searchParams.set('term_id', termId || '0');
                 url.searchParams.delete('date');
                 url.searchParams.delete('week_start');
-                window.location.href = url.toString();
+                window.tpssAsyncFilter.navigate(url, { scope: 'teaching-schedule' });
             }
 
             // ── Copy-week helpers (วันที่แบบ local ไม่โดน UTC shift) ──
@@ -7190,10 +7189,10 @@
         <div class="schedule-toolbar">
             <div class="schedule-title">ตารางสอน</div>
             <div class="week-nav" x-show="view === 'grid'" x-cloak>
-                <a class="week-btn" href="{{ $previousWeekUrl }}" aria-label="สัปดาห์ก่อนหน้า">‹</a>
+                <a class="week-btn" href="{{ $previousWeekUrl }}" data-async-filter-link aria-label="สัปดาห์ก่อนหน้า">‹</a>
                 <span>{{ $formatDate($weekStart) }} - {{ $formatDate($weekEnd) }}</span>
                 <span class="week-pill">{{ ['day' => 'รายวัน', 'week' => 'รายสัปดาห์', 'month' => 'รายเดือน'][$schedulePeriod ?? 'week'] ?? 'รายสัปดาห์' }}</span>
-                <a class="week-btn" href="{{ $nextWeekUrl }}" aria-label="สัปดาห์ถัดไป">›</a>
+                <a class="week-btn" href="{{ $nextWeekUrl }}" data-async-filter-link aria-label="สัปดาห์ถัดไป">›</a>
             </div>
             <label class="grid-date-jump" x-show="view === 'grid'" x-cloak>
                 <span>ไปยังวันที่</span>
@@ -7215,9 +7214,9 @@
                 </div>
             </label>
             <div class="period-toggle" aria-label="ช่วงเวลาที่แสดง" x-show="view === 'grid'" x-cloak>
-                <a href="{{ $dayViewUrl }}" class="{{ ($schedulePeriod ?? 'week') === 'day' ? 'is-active' : '' }}">วัน</a>
-                <a href="{{ $weekViewUrl }}" class="{{ ($schedulePeriod ?? 'week') === 'week' ? 'is-active' : '' }}">สัปดาห์</a>
-                <a href="{{ $monthViewUrl }}" class="{{ ($schedulePeriod ?? 'week') === 'month' ? 'is-active' : '' }}">เดือน</a>
+                <a href="{{ $dayViewUrl }}" data-async-filter-link class="{{ ($schedulePeriod ?? 'week') === 'day' ? 'is-active' : '' }}">วัน</a>
+                <a href="{{ $weekViewUrl }}" data-async-filter-link class="{{ ($schedulePeriod ?? 'week') === 'week' ? 'is-active' : '' }}">สัปดาห์</a>
+                <a href="{{ $monthViewUrl }}" data-async-filter-link class="{{ ($schedulePeriod ?? 'week') === 'month' ? 'is-active' : '' }}">เดือน</a>
             </div>
             <button
                 type="button"
@@ -7428,7 +7427,7 @@
                 {{-- แถบควบคุมมุมมองตาราง (grid): < เดือน > + วัน/สัปดาห์/เดือน ย้ายลงมาไว้ใต้หัวการ์ด --}}
                 <div class="schedule-grid-bar" x-show="view === 'grid'" x-cloak>
                     <div class="sched-datenav">
-                        <a class="sched-datenav-arrow" href="{{ $previousWeekUrl }}" data-testid="schedule-nav-prev" aria-label="ช่วงก่อนหน้า">
+                        <a class="sched-datenav-arrow" href="{{ $previousWeekUrl }}" data-async-filter-link data-testid="schedule-nav-prev" aria-label="ช่วงก่อนหน้า">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
                         </a>
                         <div class="sched-datenav-stack">
@@ -7447,14 +7446,14 @@
                                 <span class="sched-datenav-label">{{ $calendarHeadingText }}</span>
                             </div>
                         </div>
-                        <a class="sched-datenav-arrow" href="{{ $nextWeekUrl }}" data-testid="schedule-nav-next" aria-label="ช่วงถัดไป">
+                        <a class="sched-datenav-arrow" href="{{ $nextWeekUrl }}" data-async-filter-link data-testid="schedule-nav-next" aria-label="ช่วงถัดไป">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
                         </a>
                     </div>
                     <div class="period-toggle" aria-label="ช่วงเวลาที่แสดง">
-                        <a href="{{ $dayViewUrl }}" class="{{ ($schedulePeriod ?? 'week') === 'day' ? 'is-active' : '' }}">วัน</a>
-                        <a href="{{ $weekViewUrl }}" class="{{ ($schedulePeriod ?? 'week') === 'week' ? 'is-active' : '' }}">สัปดาห์</a>
-                        <a href="{{ $monthViewUrl }}" class="{{ ($schedulePeriod ?? 'week') === 'month' ? 'is-active' : '' }}">เดือน</a>
+                        <a href="{{ $dayViewUrl }}" data-async-filter-link class="{{ ($schedulePeriod ?? 'week') === 'day' ? 'is-active' : '' }}">วัน</a>
+                        <a href="{{ $weekViewUrl }}" data-async-filter-link class="{{ ($schedulePeriod ?? 'week') === 'week' ? 'is-active' : '' }}">สัปดาห์</a>
+                        <a href="{{ $monthViewUrl }}" data-async-filter-link class="{{ ($schedulePeriod ?? 'week') === 'month' ? 'is-active' : '' }}">เดือน</a>
                     </div>
                     <button
                         type="button"
@@ -9288,6 +9287,7 @@
             </div>
         @endif
     </div>
+    </x-async-filter>
 </x-app-layout>
 
 <script>

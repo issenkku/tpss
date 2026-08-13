@@ -1,6 +1,7 @@
 @php
     $instructorHours = $instructorHours ?? [];
-    $workloadRows = $instructors->values()->map(function ($instructor) use ($teachingWeeks, $hoursPerWeek, $instructorHours) {
+    $workloadTotalLabel = $workloadTotalLabel ?? 'ทั้งปี';
+    $workloadRows = $instructors->values()->map(function ($instructor) use ($teachingWeeks, $hoursPerWeek, $instructorHours, $workloadTotalLabel) {
         $profile = $instructor->instructorProfile;
         $employmentType = $profile?->employment_type;
         $hasQuota = $profile && $profile->teaching_pct;
@@ -31,6 +32,7 @@
             'department' => $profile?->department?->name ?: '-',
             'teachingHours' => number_format($hours['accrued'], 1),
             'totalHours' => number_format($hours['total'], 1),
+            'totalLabel' => $workloadTotalLabel,
             'sortHours' => (float) $hours['total'],
             'practicumHours' => number_format($practicumHours, 1),
             'hasPracticum' => $practicumHours > 0,
@@ -58,6 +60,9 @@
     <div class="card-hdr">
         <div class="card-ttl">ภาระงานสอนของอาจารย์</div>
         <div class="card-actions">
+            @if(!empty($workloadReportUrl))
+                <a href="{{ $workloadReportUrl }}" class="workload-report-link">ดูรายงานทั้งหมด</a>
+            @endif
             <div class="search-box">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                     <circle cx="11" cy="11" r="8" />
@@ -103,7 +108,7 @@
                         <td class="workload-department-cell" style="color: var(--fg-2); font-size: 13px;" x-text="row.department"></td>
                         <td style="text-align: right;">
                             <div style="font-weight: 700; color: var(--fg-1); font-size: 14px; font-variant-numeric: tabular-nums;" x-text="row.teachingHours"></div>
-                            <div style="font-size: 11px; color: var(--fg-3);">/ <span style="font-variant-numeric: tabular-nums;" x-text="row.totalHours"></span> ทั้งปี</div>
+                            <div style="font-size: 11px; color: var(--fg-3);">/ <span style="font-variant-numeric: tabular-nums;" x-text="row.totalHours"></span> <span x-text="row.totalLabel"></span></div>
                             <template x-if="row.hasPracticum">
                                 <div style="font-size: 10px; color: var(--fg-3); margin-top: 2px;">ฝึกปฏิบัติ <span style="font-variant-numeric: tabular-nums; font-weight: 600;" x-text="row.practicumHours"></span> ชม.</div>
                             </template>
@@ -278,6 +283,29 @@
     .workload-card .card-actions {
         flex: 0 1 360px;
         min-width: 260px;
+    }
+
+    .workload-report-link {
+        display: inline-flex;
+        min-height: 40px;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: var(--r-md);
+        color: var(--brand-navy);
+        font-size: 12px;
+        font-weight: 700;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .workload-report-link:hover,
+    .workload-report-link:focus-visible {
+        background: color-mix(in oklch, var(--brand-navy) 7%, var(--surface));
+    }
+
+    .workload-report-link:focus-visible {
+        outline: 2px solid var(--brand-navy);
+        outline-offset: 2px;
     }
 
     .workload-card .search-box {

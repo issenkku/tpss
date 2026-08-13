@@ -496,6 +496,7 @@
             line-height: 1.55;
         }
         .alert-year-select { display: flex; align-items: center; gap: 8px; }
+        .alert-year-filter-field { display: contents; }
         .alert-year-select select {
             min-height: 32px;
             padding: 4px 10px;
@@ -794,7 +795,7 @@
         };
     </script>
 
-    <div class="alert-page">
+    <x-async-filter scope="schedule-alerts" class="alert-page">
         {{-- Header --}}
         <section class="alert-hero">
             <div>
@@ -812,14 +813,18 @@
             </div>
             @if($availableYears->count() > 1)
                 <form method="GET" class="alert-year-select">
-                    <label for="alert-year-sel" style="font-size:12px;font-weight:800;color:var(--fg-2);">ปีการศึกษา</label>
-                    <select id="alert-year-sel" name="academic_year_id" onchange="this.form.submit()">
+                    <x-filter-select
+                        id="alert-year-sel"
+                        name="academic_year_id"
+                        label="ปีการศึกษา"
+                        field-class="alert-year-filter-field"
+                        label-class="alert-year-filter-label">
                         @foreach($availableYears as $year)
                             <option value="{{ $year->id }}" {{ (int)$selectedAcademicYearId === (int)$year->id ? 'selected' : '' }}>
                                 {{ $year->name }}
                             </option>
                         @endforeach
-                    </select>
+                    </x-filter-select>
                 </form>
             @endif
         </section>
@@ -1017,5 +1022,5 @@
                 @endif
             @endforeach
         @endif
-    </div>
+    </x-async-filter>
 </x-app-layout>

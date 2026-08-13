@@ -172,7 +172,9 @@
                 <span class="nv-label">ช่วยจัดตาราง</span>
             </a>
             @endif
-            <span class="nv nv-disabled" role="link" aria-disabled="true" title="ฟีเจอร์รายงานของเจ้าหน้าที่กำลังอยู่ในช่วงพัฒนา">
+            <a href="{{ route('staff.reports.workload') }}"
+               class="nv {{ Request::routeIs('staff.reports.workload') ? 'on' : '' }}"
+               data-testid="sidebar-staff-workload-report">
                 <svg class="nv-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                     <polyline points="14 2 14 8 20 8"></polyline>
@@ -181,8 +183,7 @@
                     <polyline points="10 9 9 9 8 9"></polyline>
                 </svg>
                 <span class="nv-label">รายงาน</span>
-                <span class="nv-dev-badge">กำลังพัฒนา</span>
-            </span>
+            </a>
 
         @elseif($activeRole === 'course_head')
             @php
@@ -343,15 +344,16 @@
                 </svg>
                 <span class="nv-label">ตีกลับ / แก้ไข</span>
             </a>
-            <span class="nv nv-disabled" role="link" aria-disabled="true" title="ฟีเจอร์รายงานภาพรวมสำหรับผู้บริหารกำลังอยู่ในช่วงพัฒนา">
+            <a href="{{ route('approver.reports.workload') }}"
+               class="nv {{ Request::routeIs('approver.reports.workload') ? 'on' : '' }}"
+               data-testid="sidebar-executive-workload-report">
                 <svg class="nv-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="18" y1="20" x2="18" y2="10"></line>
                     <line x1="12" y1="20" x2="12" y2="4"></line>
                     <line x1="6" y1="20" x2="6" y2="14"></line>
                 </svg>
                 <span class="nv-label">รายงานภาพรวม</span>
-                <span class="nv-dev-badge">กำลังพัฒนา</span>
-            </span>
+            </a>
 
         @elseif($activeRole === 'admin')
             @php

@@ -3,8 +3,12 @@
 namespace Tests\Feature\Schedule;
 
 use App\Http\Controllers\Instructor\PaController;
+use App\Models\AcademicCalendar;
 use App\Models\AcademicYear;
+use App\Models\CourseOffering;
+use App\Models\StudentGroup;
 use App\Models\SystemSetting;
+use App\Models\Term;
 
 /**
  * M6 — กัน regression: widget admin ต้องโชว์ชั่วโมงสอน "จริง" จาก schedule
@@ -245,8 +249,121 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
 
         $content = $response->getContent();
         $this->assertStringStartsWith("\xEF\xBB\xBF", $content);   // UTF-8 BOM (Excel ไทย)
-        $this->assertStringContainsString('ชั่วโมงทั้งปี', $content); // header
+        $this->assertStringContainsString('ชั่วโมงตามช่วงที่เลือก', $content); // header
         $this->assertStringContainsString('3.5', $content);          // ชั่วโมงจริงของอาจารย์
+    }
+
+    public function test_workload_report_filters_by_academic_year_and_term_and_preserves_export_filters(): void
+    {
+        [$head, $currentOffering, $instructor, $currentGroup, $lecture, $room] = $this->makeReadyOffering();
+        $currentYear = $currentOffering->academicYear;
+        $currentYear->update([
+            'start_date' => '2026-01-01',
+            'end_date' => '2026-12-31',
+        ]);
+
+        $currentCalendar = AcademicCalendar::create([
+            'academic_year_id' => $currentYear->id,
+            'name' => 'ทุกหลักสูตร',
+        ]);
+        $currentTerm = Term::create([
+            'academic_calendar_id' => $currentCalendar->id,
+            'sequence' => 1,
+            'name' => 'ภาคเรียนที่ 1',
+            'start_date' => '2026-01-01',
+            'end_date' => '2026-06-30',
+        ]);
+        $this->makeSchedule($currentOffering, $lecture, $room, [$instructor], [$currentGroup], [
+            'term_id' => $currentTerm->id,
+            'status' => 'approved',
+            'start_date' => '2026-06-01',
+            'end_date' => '2026-06-01',
+            'start_time' => '09:00',
+            'end_time' => '11:30',
+        ]);
+
+        $historicalYear = AcademicYear::create([
+            'name' => '2568',
+            'start_date' => '2025-01-01',
+            'end_date' => '2025-12-31',
+            'is_active' => false,
+            'phase' => 'published',
+        ]);
+        $historicalCalendar = AcademicCalendar::create([
+            'academic_year_id' => $historicalYear->id,
+            'name' => 'ทุกหลักสูตร',
+        ]);
+        $historicalTermOne = Term::create([
+            'academic_calendar_id' => $historicalCalendar->id,
+            'sequence' => 1,
+            'name' => 'ภาคเรียนที่ 1',
+            'start_date' => '2025-01-01',
+            'end_date' => '2025-06-30',
+        ]);
+        $historicalTermTwo = Term::create([
+            'academic_calendar_id' => $historicalCalendar->id,
+            'sequence' => 2,
+            'name' => 'ภาคเรียนที่ 2',
+            'start_date' => '2025-07-01',
+            'end_date' => '2025-12-31',
+        ]);
+        $historicalOffering = CourseOffering::create([
+            'course_id' => $currentOffering->course_id,
+            'academic_year_id' => $historicalYear->id,
+            'coordinator_id' => $head->id,
+            'approval_status' => 'published',
+            'total_student_count' => 30,
+        ]);
+        $historicalOffering->instructorPool()->attach($instructor->id, ['role_in_course' => 'instructor']);
+        $historicalGroup = StudentGroup::create([
+            'course_offering_id' => $historicalOffering->id,
+            'group_code' => 'H1',
+            'student_count' => 15,
+        ]);
+
+        $this->makeSchedule($historicalOffering, $lecture, $room, [$instructor], [$historicalGroup], [
+            'term_id' => $historicalTermOne->id,
+            'status' => 'approved',
+            'start_date' => '2025-06-01',
+            'end_date' => '2025-06-01',
+            'start_time' => '08:00',
+            'end_time' => '13:30',
+        ]);
+        $this->makeSchedule($historicalOffering, $lecture, $room, [$instructor], [$historicalGroup], [
+            'term_id' => $historicalTermTwo->id,
+            'status' => 'approved',
+            'start_date' => '2025-08-01',
+            'end_date' => '2025-08-01',
+            'start_time' => '08:00',
+            'end_time' => '12:30',
+        ]);
+
+        $admin = $this->makeUser('admin');
+        $this->actingAs($admin)->withSession(['active_role' => 'admin']);
+        $filters = [
+            'academic_year_id' => $historicalYear->id,
+            'term_sequence' => 1,
+        ];
+
+        $response = $this->get(route('admin.reports.workload', $filters))
+            ->assertOk()
+            ->assertSee('data-testid="workload-report-filters"', false)
+            ->assertSee('ภาคเรียนที่ 1')
+            ->assertViewHas('termSequence', 1);
+
+        $hours = $response->viewData('instructorHours');
+        $this->assertSame(5.5, $hours[$instructor->id]['total']);
+        $this->assertSame('2568', $response->viewData('year')->name);
+
+        $export = $this->get(route('admin.reports.workload.export', $filters))->assertOk();
+        $content = $export->getContent();
+        $csv = preg_replace('/^\xEF\xBB\xBF/', '', $content);
+        $rows = array_values(array_filter(array_map(
+            'str_getcsv',
+            preg_split('/\r\n|\r|\n/', trim($csv))
+        )));
+        $this->assertSame('5.5', $rows[1][4]);
+        $this->assertStringContainsString('workload-report-2568-term-1.csv', $export->headers->get('Content-Disposition'));
     }
 
     public function test_publishing_offering_finalizes_schedules_and_instructor_sees_workload(): void
@@ -300,12 +417,34 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
             ->assertDontSee('data-testid="workload-summary"', false); // ไม่โชว์การ์ดสรุป 0
     }
 
-    public function test_non_admin_cannot_access_workload_report(): void
+    public function test_staff_and_executive_can_view_workload_report_but_cannot_use_admin_export(): void
+    {
+        $staff = $this->makeUser('staff');
+        $this->actingAs($staff)->withSession(['active_role' => 'staff']);
+        $this->get(route('staff.reports.workload'))
+            ->assertOk()
+            ->assertSee('data-testid="sidebar-staff-workload-report"', false)
+            ->assertDontSee('data-testid="workload-export-csv"', false)
+            ->assertDontSee('และนำออกเป็นไฟล์ Excel ได้');
+        $this->get(route('admin.reports.workload.export'))->assertForbidden();
+
+        $executive = $this->makeUser('executive');
+        $this->actingAs($executive)->withSession(['active_role' => 'executive']);
+        $this->get(route('approver.reports.workload'))
+            ->assertOk()
+            ->assertSee('data-testid="sidebar-executive-workload-report"', false)
+            ->assertDontSee('data-testid="workload-export-csv"', false)
+            ->assertDontSee('และนำออกเป็นไฟล์ Excel ได้');
+        $this->get(route('admin.reports.workload.export'))->assertForbidden();
+    }
+
+    public function test_unsupported_roles_cannot_access_workload_reports(): void
     {
         $instructor = $this->makeUser('instructor');
         $this->actingAs($instructor)->withSession(['active_role' => 'instructor']);
 
         $this->get(route('admin.reports.workload'))->assertForbidden();
-        $this->get(route('admin.reports.workload.export'))->assertForbidden();
+        $this->get(route('staff.reports.workload'))->assertForbidden();
+        $this->get(route('approver.reports.workload'))->assertForbidden();
     }
 }

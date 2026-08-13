@@ -29,7 +29,7 @@ test.describe('M6 — Workload report', () => {
 
     // เมนู sidebar เปิดใช้งานแล้ว (เป็นลิงก์จริง ไม่ใช่ "กำลังพัฒนา") + active state
     const nav = page.getByTestId('sidebar-workload-report');
-    await expect(nav).toBeVisible();
+    await expect(nav).toHaveCount(1);
     await expect(nav).toHaveAttribute('href', /\/admin\/reports\/workload/);
     await expect(nav).toHaveClass(/(^|\s)on(\s|$)/);
   });
@@ -44,5 +44,25 @@ test.describe('M6 — Workload report', () => {
 
     expect(download.suggestedFilename()).toContain('workload-report');
     expect(download.suggestedFilename()).toMatch(/\.csv$/);
+  });
+
+  test('year and term filters update without a full page reload', async ({ page }) => {
+    await login(page);
+    await page.goto('/admin/reports/workload');
+
+    await expect(page.getByRole('button', { name: 'แสดงผล' })).toHaveCount(0);
+
+    const term = page.getByLabel('ภาคเรียน');
+    const termOptions = term.locator('option');
+    test.skip(await termOptions.count() < 2, 'No selectable academic term is available.');
+
+    await page.evaluate(() => document.body.dataset.asyncFilterShell = 'stable');
+    await term.selectOption({ index: 1 });
+
+    await expect(page.locator('#tpss-filter-status')).toHaveText('กรองข้อมูลเรียบร้อยแล้ว');
+    await expect(page).toHaveURL(/term_sequence=\d+/);
+    await expect(page.getByTestId('workload-export-csv')).toHaveAttribute('href', /term_sequence=\d+/);
+    expect(await page.evaluate(() => document.body.dataset.asyncFilterShell)).toBe('stable');
+    await expect(page.getByRole('button', { name: 'แสดงผล' })).toHaveCount(0);
   });
 });

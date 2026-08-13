@@ -6,6 +6,8 @@
             'desc'   => 'แสดงข้อมูลสรุปสถานะการทำงานและภาระงานสอนของอาจารย์ทั้งหมด',
         ])
 
-        @include('shared.dashboard.instructors_workload')
+        @include('shared.dashboard.instructors_workload', [
+            'workloadReportUrl' => route('staff.reports.workload'),
+        ])
     </div>
 </x-app-layout>

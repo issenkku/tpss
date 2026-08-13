@@ -22,7 +22,9 @@
             @if(($summary['total_hours'] ?? 0) > 0)
                 @include('admin.reports._summary')
             @endif
-            @include('shared.dashboard.instructors_workload')
+            @include('shared.dashboard.instructors_workload', [
+                'workloadReportUrl' => route('approver.reports.workload'),
+            ])
         </div>
 
         @if(session('success'))

@@ -89,7 +89,11 @@ class WorkloadCalculator
      *
      * @return array<int, array{accrued: float, total: float, by_category: array<string, float>}>
      */
-    public function facultyTotalsForYear(int $academicYearId, CarbonInterface|string|null $asOf = null): array
+    public function facultyTotalsForYear(
+        int $academicYearId,
+        CarbonInterface|string|null $asOf = null,
+        ?int $termSequence = null
+    ): array
     {
         $today = $asOf ? CarbonImmutable::parse($asOf)->startOfDay() : CarbonImmutable::today();
         $totals = [];
@@ -98,6 +102,10 @@ class WorkloadCalculator
             ->where('status', 'approved')
             ->whereHas('activityType', fn ($q) => $q->where('counts_toward_workload', true))
             ->whereHas('courseOffering', fn ($q) => $q->where('academic_year_id', $academicYearId))
+            ->when($termSequence, fn ($q) => $q->whereHas(
+                'term',
+                fn ($termQuery) => $termQuery->where('sequence', $termSequence)
+            ))
             ->with(['activityType', 'instructors:id'])
             ->get()
             ->each(function (Schedule $schedule) use ($today, &$totals): void {
@@ -127,7 +135,11 @@ class WorkloadCalculator
      *
      * @return array{bachelor: float, master: float, doctorate: float}
      */
-    public function facultyHoursByEducationLevel(int $academicYearId, CarbonInterface|string|null $asOf = null): array
+    public function facultyHoursByEducationLevel(
+        int $academicYearId,
+        CarbonInterface|string|null $asOf = null,
+        ?int $termSequence = null
+    ): array
     {
         $totals = ['bachelor' => 0.0, 'master' => 0.0, 'doctorate' => 0.0];
 
@@ -135,6 +147,10 @@ class WorkloadCalculator
             ->where('status', 'approved')
             ->whereHas('activityType', fn ($q) => $q->where('counts_toward_workload', true))
             ->whereHas('courseOffering', fn ($q) => $q->where('academic_year_id', $academicYearId))
+            ->when($termSequence, fn ($q) => $q->whereHas(
+                'term',
+                fn ($termQuery) => $termQuery->where('sequence', $termSequence)
+            ))
             ->with(['activityType', 'instructors:id', 'courseOffering.course.curriculum:id,education_level'])
             ->get()
             ->each(function (Schedule $schedule) use (&$totals): void {

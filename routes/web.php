@@ -50,6 +50,14 @@ Route::middleware(['auth', 'no-back'])->group(function () {
     Route::get('/lecturer/dashboard', [DashboardController::class, 'lecturer'])->name('lecturer.dashboard')->middleware('\App\Http\Middleware\CheckRole:instructor');
     Route::put('/lecturer/dashboard/pa', [PaController::class, 'update'])->name('lecturer.pa.update')->middleware('\App\Http\Middleware\CheckRole:instructor');
 
+    // M6 — หน้ารายงานภาระงานชุดเดียวกันสำหรับผู้ดูแลระบบ เจ้าหน้าที่ และผู้บริหาร
+    Route::get('/staff/reports/workload', [\App\Http\Controllers\Admin\WorkloadReportController::class, 'index'])
+        ->name('staff.reports.workload')
+        ->middleware('\App\Http\Middleware\CheckRole:staff');
+    Route::get('/approver/reports/workload', [\App\Http\Controllers\Admin\WorkloadReportController::class, 'index'])
+        ->name('approver.reports.workload')
+        ->middleware('\App\Http\Middleware\CheckRole:executive');
+
     // V2 delegation: งานจัดตาราง (workspace/alerts/slot CRUD) เปิดให้หัวหน้าวิชา + อาจารย์ที่ถูกมอบหมาย + เจ้าหน้าที่ที่ดูแลวิชา
     // access จริงต่อ offering กรองด้วย CourseOffering::scopeSchedulableBy / canBeScheduledBy
     // (coordinator หรือ instructor schedule_permission='schedule' หรือ staff ใน course_staff)

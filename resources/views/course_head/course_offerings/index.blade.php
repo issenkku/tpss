@@ -8,6 +8,7 @@
 @endphp
 
 <x-app-layout title="จัดการรายวิชา">
+    <x-async-filter scope="course-offerings">
     <div class="co-hero">
         <div class="co-hero-kicker">หัวหน้าวิชา / จัดการรายวิชา</div>
         <h1 class="co-hero-title">รายวิชาที่รับผิดชอบ</h1>
@@ -16,7 +17,10 @@
 
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap;">
         @if($availableYears->count() > 0)
-            <form method="GET" action="{{ route('maker.course_offerings.index') }}" class="course-offering-year-filter" style="
+            <form method="GET"
+                  action="{{ route('maker.course_offerings.index') }}"
+                  class="course-offering-year-filter"
+                  style="
                 display:inline-flex;
                 align-items:stretch;
                 border:2px solid var(--brand-navy);
@@ -24,38 +28,33 @@
                 overflow:hidden;
                 background:var(--surface);
             ">
-                <label for="year-filter" style="
-                    display:inline-flex;
-                    align-items:center;
-                    gap:6px;
-                    padding:8px 14px;
-                    background:var(--brand-navy);
-                    color:#fff;
-                    font-size:0.8125rem;
-                    font-weight:600;
-                    white-space:nowrap;
-                    margin:0;
-                ">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="4" width="18" height="18" rx="2"/>
-                        <line x1="16" y1="2" x2="16" y2="6"/>
-                        <line x1="8" y1="2" x2="8" y2="6"/>
-                        <line x1="3" y1="10" x2="21" y2="10"/>
-                    </svg>
-                    ปีการศึกษา
-                </label>
-                <div class="course-offering-year-select">
-                    <select id="year-filter" name="year" class="tpss-custom-select" data-menu-anchor=".course-offering-year-filter" onchange="this.form.submit()" data-testid="offering-year-filter">
+                <x-filter-select
+                    id="year-filter"
+                    name="year"
+                    field-class="course-offering-year-field"
+                    label-class="course-offering-year-label"
+                    select-wrapper-class="course-offering-year-select"
+                    class="tpss-custom-select"
+                    data-menu-anchor=".course-offering-year-filter"
+                    data-testid="offering-year-filter">
+                    <x-slot:labelContent>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="3" y="4" width="18" height="18" rx="2"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/>
+                            <line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                        </svg>
+                        ปีการศึกษา
+                    </x-slot:labelContent>
                         @foreach($availableYears as $year)
                             <option value="{{ $year->id }}" @selected($year->id === $selectedYearId)>
                                 ปีการศึกษา {{ $year->name }}@if($year->is_active) · ปัจจุบัน @endif
                             </option>
                         @endforeach
-                    </select>
-                </div>
+                </x-filter-select>
             </form>
         @endif
-    </div>
+    </x-async-filter>
 
     @if($summary['total'] > 0)
         @php
@@ -392,6 +391,10 @@
             min-width: 0;
         }
 
+        .course-offering-year-field {
+            display: contents;
+        }
+
         .course-offering-year-filter .tpss-select {
             height: 40px;
         }
@@ -434,4 +437,5 @@
             }
         }
     </style>
+    </div>
 </x-app-layout>
