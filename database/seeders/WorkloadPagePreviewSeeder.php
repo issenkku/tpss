@@ -180,10 +180,12 @@ class WorkloadPagePreviewSeeder extends Seeder
     {
         $head = CourseRole::query()->firstOrCreate(['name_th' => 'หัวหน้าวิชา']);
         $instructor = CourseRole::query()->firstOrCreate(['name_th' => 'อาจารย์ผู้สอน']);
+        $mentor = CourseRole::query()->firstOrCreate(['name_th' => 'อาจารย์พี่เลี้ยง']);
 
         return [
             'head' => $head->id,
             'instructor' => $instructor->id,
+            'mentor' => $mentor->id,
         ];
     }
 
@@ -278,6 +280,9 @@ class WorkloadPagePreviewSeeder extends Seeder
                 'lecture' => 2,
                 'lab' => 0,
                 'year' => 2,
+                'head' => 'instructor',
+                'instructor_role' => 'head',
+                'assistant_role' => 'instructor',
             ],
             [
                 'code' => 'WLNS 314',
@@ -286,6 +291,9 @@ class WorkloadPagePreviewSeeder extends Seeder
                 'lecture' => 2,
                 'lab' => 2,
                 'year' => 3,
+                'head' => 'assistant',
+                'instructor_role' => 'instructor',
+                'assistant_role' => 'head',
             ],
             [
                 'code' => 'WLNS 371',
@@ -294,6 +302,9 @@ class WorkloadPagePreviewSeeder extends Seeder
                 'lecture' => 0,
                 'lab' => 6,
                 'year' => 3,
+                'head' => 'assistant',
+                'instructor_role' => 'mentor',
+                'assistant_role' => 'head',
             ],
         ];
 
@@ -303,7 +314,9 @@ class WorkloadPagePreviewSeeder extends Seeder
                 ['course_code' => $row['code'], 'curriculum_id' => $curriculum->id],
                 [
                     'department_id' => $department->id,
-                    'head_instructor_id' => $instructor->id,
+                    'head_instructor_id' => $row['head'] === 'assistant'
+                        ? $assistant->id
+                        : $instructor->id,
                     'name_th' => $row['name'],
                     'name_en' => null,
                     'course_type' => $row['type'],
@@ -319,8 +332,8 @@ class WorkloadPagePreviewSeeder extends Seeder
             );
 
             $course->instructors()->syncWithoutDetaching([
-                $instructor->id => ['course_role_id' => $roleIds['head']],
-                $assistant->id => ['course_role_id' => $roleIds['instructor']],
+                $instructor->id => ['course_role_id' => $roleIds[$row['instructor_role']]],
+                $assistant->id => ['course_role_id' => $roleIds[$row['assistant_role']]],
             ]);
 
             $courses[$row['code']] = $course;
@@ -334,10 +347,15 @@ class WorkloadPagePreviewSeeder extends Seeder
         $offerings = [];
 
         foreach ($courses as $code => $course) {
+            $courseInstructorRoles = $course->instructors()
+                ->get()
+                ->mapWithKeys(fn (User $user) => [
+                    (int) $user->id => (int) $user->pivot->course_role_id,
+                ]);
             $offering = CourseOffering::query()->updateOrCreate(
                 ['course_id' => $course->id, 'academic_year_id' => $year->id],
                 [
-                    'coordinator_id' => $instructor->id,
+                    'coordinator_id' => $course->head_instructor_id,
                     'approval_status' => 'published',
                     'planned_lecture_hours' => $course->lecture_hours,
                     'planned_lab_hours' => $course->lab_hours,
@@ -348,14 +366,22 @@ class WorkloadPagePreviewSeeder extends Seeder
 
             $offering->instructorPool()->syncWithoutDetaching([
                 $instructor->id => [
-                    'role_in_course' => 'coordinator',
-                    'course_role_id' => $roleIds['head'],
-                    'schedule_permission' => 'schedule',
+                    'role_in_course' => $course->head_instructor_id === $instructor->id
+                        ? 'coordinator'
+                        : 'instructor',
+                    'course_role_id' => $courseInstructorRoles->get($instructor->id),
+                    'schedule_permission' => $course->head_instructor_id === $instructor->id
+                        ? 'schedule'
+                        : 'view',
                 ],
                 $assistant->id => [
-                    'role_in_course' => 'instructor',
-                    'course_role_id' => $roleIds['instructor'],
-                    'schedule_permission' => 'view',
+                    'role_in_course' => $course->head_instructor_id === $assistant->id
+                        ? 'coordinator'
+                        : 'instructor',
+                    'course_role_id' => $courseInstructorRoles->get($assistant->id),
+                    'schedule_permission' => $course->head_instructor_id === $assistant->id
+                        ? 'schedule'
+                        : 'view',
                 ],
             ]);
 

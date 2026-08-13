@@ -101,8 +101,22 @@ test.describe('M6 — Workload report', () => {
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await expect(details).toBeVisible();
     await expect(details.getByText('รายละเอียดภาระงานแยกรายวิชา')).toBeVisible();
+    await expect(details.getByTestId('workload-course-role-summary')).toBeVisible();
     await expect(details.getByRole('columnheader', { name: 'รายวิชา' })).toBeVisible();
+    await expect(details.getByRole('columnheader', { name: 'บทบาทรายวิชา' })).toBeVisible();
+    await expect(details.getByRole('columnheader', { name: 'หน้าที่ในคาบ' })).toBeVisible();
     await expect(details.getByRole('columnheader', { name: 'รวม' })).toBeVisible();
+
+    const roleFilter = details.getByTestId('workload-course-role-filter').first();
+    const selectedRole = (await roleFilter.locator('.workload-role-summary-name').textContent())?.trim() ?? '';
+    await roleFilter.click();
+    await expect(roleFilter).toHaveAttribute('aria-pressed', 'true');
+    const visibleRoles = await details.locator('.workload-course-role').allTextContents();
+    expect(visibleRoles).toEqual(expect.arrayContaining([selectedRole]));
+    expect(visibleRoles.every((role) => role.trim() === selectedRole)).toBe(true);
+
+    await roleFilter.click();
+    await expect(roleFilter).toHaveAttribute('aria-pressed', 'false');
 
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');

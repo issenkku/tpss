@@ -34,7 +34,8 @@
                 'courseCode' => $detail['course_code'],
                 'courseName' => $detail['course_name'],
                 'termLabel' => $detail['term_label'],
-                'roles' => $detail['roles'],
+                'courseRole' => $detail['course_role'],
+                'scheduleRoles' => $detail['schedule_roles'],
                 'scheduleCount' => $detail['schedule_count'],
                 'lectureHours' => number_format($categories['lecture'] ?? 0, 1),
                 'practicumHours' => number_format($categories['practicum'] ?? 0, 1),
@@ -42,6 +43,15 @@
                 'totalHours' => number_format($detail['total_hours'], 1),
             ];
         })->values();
+        $courseRoleSummaries = collect($workloadCourseDetails[$instructor->id] ?? [])
+            ->groupBy('course_role')
+            ->map(fn ($details, $role) => [
+                'role' => $role,
+                'courseCount' => $details->pluck('course_offering_id')->unique()->count(),
+                'hours' => number_format($details->sum('total_hours'), 1),
+            ])
+            ->sortByDesc(fn ($summary) => (float) $summary['hours'])
+            ->values();
 
         return [
             'id' => $instructor->id,
@@ -61,6 +71,7 @@
             'quota' => $quota,
             'period' => $period,
             'courseDetails' => $courseDetails,
+            'courseRoleSummaries' => $courseRoleSummaries,
             'searchText' => mb_strtolower(trim(($instructor->employee_id ?? '') . ' ' . $instructor->formatted_name)),
         ];
     })
@@ -189,13 +200,32 @@
                                         </div>
                                     </div>
 
+                                    <div class="workload-role-summary"
+                                        data-testid="workload-course-role-summary"
+                                        aria-label="สรุปชั่วโมงตามบทบาทรายวิชา">
+                                        <template x-for="summary in row.courseRoleSummaries" :key="summary.role">
+                                            <button type="button"
+                                                class="workload-role-summary-item"
+                                                data-testid="workload-course-role-filter"
+                                                :class="{ 'is-active': selectedCourseRole === summary.role }"
+                                                :aria-pressed="(selectedCourseRole === summary.role).toString()"
+                                                :aria-label="`กรองบทบาท ${summary.role} ${summary.hours} ชั่วโมง`"
+                                                @click="toggleCourseRole(summary.role)">
+                                                <span class="workload-role-summary-name" x-text="summary.role"></span>
+                                                <strong><span x-text="summary.hours"></span> ชม.</strong>
+                                                <small><span x-text="summary.courseCount"></span> รายวิชา</small>
+                                            </button>
+                                        </template>
+                                    </div>
+
                                     <div class="workload-course-detail-scroll">
                                         <table class="workload-course-detail-table">
                                             <thead>
                                                 <tr>
                                                     <th>รายวิชา</th>
                                                     <th>ภาคเรียน</th>
-                                                    <th>บทบาทในคาบ</th>
+                                                    <th>บทบาทรายวิชา</th>
+                                                    <th>หน้าที่ในคาบ</th>
                                                     <th class="is-number">จำนวนคาบ</th>
                                                     <th class="is-number">บรรยาย</th>
                                                     <th class="is-number">ฝึกปฏิบัติ</th>
@@ -204,16 +234,17 @@
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                <template x-for="detail in row.courseDetails" :key="detail.key">
+                                                <template x-for="detail in filteredCourseDetails(row)" :key="detail.key">
                                                     <tr>
                                                         <td>
                                                             <div class="workload-detail-course-code" x-text="detail.courseCode"></div>
                                                             <div class="workload-detail-course-name" x-text="detail.courseName"></div>
                                                         </td>
                                                         <td x-text="detail.termLabel"></td>
+                                                        <td><span class="workload-course-role" x-text="detail.courseRole"></span></td>
                                                         <td>
                                                             <div class="workload-detail-roles">
-                                                                <template x-for="role in detail.roles" :key="role">
+                                                                <template x-for="role in detail.scheduleRoles" :key="role">
                                                                     <span x-text="role"></span>
                                                                 </template>
                                                             </div>
@@ -306,6 +337,7 @@
             searchQuery: '',
             currentPage: 1,
             expandedRowId: null,
+            selectedCourseRole: null,
             perPage: Math.max(Number(config.perPage || 5), 1),
 
             get filteredRows() {
@@ -355,16 +387,30 @@
             resetPage() {
                 this.currentPage = 1;
                 this.expandedRowId = null;
+                this.selectedCourseRole = null;
             },
 
             goToPage(page) {
                 if (page === '...') return;
                 this.currentPage = Math.min(Math.max(Number(page), 1), this.totalPages);
                 this.expandedRowId = null;
+                this.selectedCourseRole = null;
             },
 
             toggleDetails(rowId) {
-                this.expandedRowId = this.expandedRowId === rowId ? null : rowId;
+                const isClosing = this.expandedRowId === rowId;
+                this.expandedRowId = isClosing ? null : rowId;
+                this.selectedCourseRole = null;
+            },
+
+            toggleCourseRole(role) {
+                this.selectedCourseRole = this.selectedCourseRole === role ? null : role;
+            },
+
+            filteredCourseDetails(row) {
+                if (!this.selectedCourseRole) return row.courseDetails;
+
+                return row.courseDetails.filter((detail) => detail.courseRole === this.selectedCourseRole);
             },
         };
     };
@@ -650,6 +696,74 @@
         font-size: inherit;
     }
 
+    .workload-role-summary {
+        display: flex;
+        align-items: stretch;
+        gap: 6px;
+        margin-bottom: 10px;
+        overflow-x: auto;
+        scrollbar-width: thin;
+    }
+
+    .workload-role-summary-item {
+        display: grid;
+        grid-template-columns: minmax(104px, 1fr) auto;
+        align-items: baseline;
+        gap: 0 10px;
+        min-width: 178px;
+        padding: 6px 9px;
+        border: 1px solid color-mix(in oklch, var(--brand-navy) 16%, var(--border));
+        border-radius: var(--r-sm);
+        background: color-mix(in oklch, var(--brand-navy) 4%, var(--surface));
+        color: inherit;
+        font-family: inherit;
+        text-align: left;
+        cursor: pointer;
+        transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .workload-role-summary-item:hover {
+        border-color: color-mix(in oklch, var(--brand-navy) 42%, var(--border));
+        background: color-mix(in oklch, var(--brand-navy) 8%, var(--surface));
+    }
+
+    .workload-role-summary-item:focus-visible {
+        outline: 2px solid var(--brand-navy);
+        outline-offset: 2px;
+    }
+
+    .workload-role-summary-item.is-active {
+        border-color: var(--brand-navy);
+        background: color-mix(in oklch, var(--brand-navy) 12%, var(--surface));
+        box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--brand-navy) 16%, transparent);
+    }
+
+    .workload-role-summary-name {
+        overflow: hidden;
+        color: var(--fg-1);
+        font-size: 13px;
+        font-weight: 800;
+        line-height: 1.5;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .workload-role-summary-item strong {
+        color: var(--brand-navy);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.4;
+        white-space: nowrap;
+    }
+
+    .workload-role-summary-item small {
+        grid-column: 1 / -1;
+        margin-top: 1px;
+        color: var(--fg-3);
+        font-size: 9px;
+        line-height: 1.4;
+    }
+
     .workload-course-detail-scroll {
         overflow-x: auto;
         border: 1px solid color-mix(in oklch, var(--brand-navy) 17%, var(--border));
@@ -659,7 +773,7 @@
 
     .workload-card table.workload-course-detail-table {
         width: 100%;
-        min-width: 880px;
+        min-width: 1040px;
         table-layout: auto;
     }
 
@@ -739,6 +853,20 @@
         color: color-mix(in oklch, var(--brand-navy) 78%, var(--fg-2));
         font-size: 10px;
         font-weight: 700;
+    }
+
+    .workload-course-role {
+        display: inline-flex;
+        align-items: center;
+        min-height: 25px;
+        padding: 3px 8px;
+        border: 1px solid color-mix(in oklch, var(--brand-navy) 23%, var(--border));
+        border-radius: var(--r-sm);
+        background: color-mix(in oklch, var(--brand-navy) 8%, var(--surface));
+        color: var(--brand-navy);
+        font-size: 10px;
+        font-weight: 800;
+        white-space: nowrap;
     }
 
     /* M6-03 — แท่งภาระงาน ใช้ vs เกณฑ์ */

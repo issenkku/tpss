@@ -6,9 +6,14 @@ use App\Http\Controllers\Instructor\PaController;
 use App\Models\AcademicCalendar;
 use App\Models\AcademicYear;
 use App\Models\CourseOffering;
+use App\Models\CourseRole;
+use App\Models\Schedule;
 use App\Models\StudentGroup;
 use App\Models\SystemSetting;
 use App\Models\Term;
+use App\Models\User;
+use App\Services\WorkloadCalculator;
+use Database\Seeders\WorkloadPagePreviewSeeder;
 
 /**
  * M6 — กัน regression: widget admin ต้องโชว์ชั่วโมงสอน "จริง" จาก schedule
@@ -229,6 +234,13 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
     {
         [$head, $offering, $instructor, $group, $lecture, $room] = $this->makeReadyOffering();
         $practicum = $this->makePracticumActivityType();
+        $courseRole = CourseRole::create([
+            'name_th' => 'อาจารย์ประจำกลุ่ม',
+            'sort_order' => 5,
+        ]);
+        $offering->instructorPool()->updateExistingPivot($instructor->id, [
+            'course_role_id' => $courseRole->id,
+        ]);
         $year = $offering->academicYear;
         $calendar = AcademicCalendar::create([
             'academic_year_id' => $year->id,
@@ -296,7 +308,11 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
             ->assertOk()
             ->assertSee('data-testid="workload-course-details-toggle"', false)
             ->assertSee('data-testid="workload-course-details"', false)
+            ->assertSee('data-testid="workload-course-role-summary"', false)
+            ->assertSee('data-testid="workload-course-role-filter"', false)
             ->assertSee('รายละเอียดภาระงานแยกรายวิชา')
+            ->assertSee('บทบาทรายวิชา')
+            ->assertSee('อาจารย์ประจำกลุ่ม')
             ->assertSee($offering->course->course_code);
 
         $details = $response->viewData('instructorCourseDetails');
@@ -306,7 +322,8 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
         $course = $details[$instructor->id][0];
         $this->assertSame($offering->course->course_code, $course['course_code']);
         $this->assertSame('ภาคเรียนที่ 1', $course['term_label']);
-        $this->assertSame(['ผู้สอนหลัก', 'ผู้ร่วมสอน'], $course['roles']);
+        $this->assertSame('อาจารย์ประจำกลุ่ม', $course['course_role']);
+        $this->assertSame(['ผู้สอนหลัก', 'ผู้ร่วมสอน'], $course['schedule_roles']);
         $this->assertSame(2, $course['schedule_count']);
         $this->assertSame(3.0, $course['by_category']['lecture']);
         $this->assertSame(4.0, $course['by_category']['practicum']);
@@ -315,6 +332,31 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
             $response->viewData('instructorHours')[$instructor->id]['total'],
             $course['total_hours']
         );
+    }
+
+    public function test_workload_preview_seeder_creates_multiple_course_roles_idempotently(): void
+    {
+        $this->seed(WorkloadPagePreviewSeeder::class);
+
+        $year = AcademicYear::query()->where('is_active', true)->firstOrFail();
+        $instructor = User::query()->where('username', 'instructor_01')->firstOrFail();
+        $calculator = new WorkloadCalculator;
+        $details = $calculator->facultyCourseDetailsForYear($year->id);
+
+        $this->assertCount(3, $details[$instructor->id]);
+        $this->assertEqualsCanonicalizing(
+            ['หัวหน้าวิชา', 'อาจารย์ผู้สอน', 'อาจารย์พี่เลี้ยง'],
+            collect($details[$instructor->id])->pluck('course_role')->all()
+        );
+        $this->assertSame(28.0, collect($details[$instructor->id])->sum('total_hours'));
+        $this->assertSame(8, Schedule::query()->where('remark', '[workload-page-preview]')->count());
+
+        $this->seed(WorkloadPagePreviewSeeder::class);
+        $reseededDetails = $calculator->facultyCourseDetailsForYear($year->id);
+
+        $this->assertCount(3, $reseededDetails[$instructor->id]);
+        $this->assertSame(28.0, collect($reseededDetails[$instructor->id])->sum('total_hours'));
+        $this->assertSame(8, Schedule::query()->where('remark', '[workload-page-preview]')->count());
     }
 
     public function test_workload_report_exports_csv_with_bom(): void

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\CourseRole;
 use App\Models\InstructorProfile;
 use App\Models\Schedule;
 use Carbon\CarbonImmutable;
@@ -140,7 +141,8 @@ class WorkloadCalculator
      *     term_id: ?int,
      *     term_sequence: ?int,
      *     term_label: string,
-     *     roles: array<int, string>,
+     *     course_role: string,
+     *     schedule_roles: array<int, string>,
      *     schedule_count: int,
      *     by_category: array<string, float>,
      *     total_hours: float
@@ -149,6 +151,7 @@ class WorkloadCalculator
     public function facultyCourseDetailsForYear(int $academicYearId, ?int $termSequence = null): array
     {
         $details = [];
+        $courseRoleNames = CourseRole::query()->pluck('name_th', 'id');
 
         Schedule::query()
             ->where('status', 'approved')
@@ -163,10 +166,11 @@ class WorkloadCalculator
                 'term:id,name,sequence',
                 'courseOffering:id,course_id',
                 'courseOffering.course:id,course_code,name_th,name_en',
+                'courseOffering.instructorPool:id',
                 'instructors:id',
             ])
             ->get()
-            ->each(function (Schedule $schedule) use (&$details): void {
+            ->each(function (Schedule $schedule) use (&$details, $courseRoleNames): void {
                 $offering = $schedule->courseOffering;
                 $course = $offering?->course;
 
@@ -180,6 +184,13 @@ class WorkloadCalculator
 
                 foreach ($schedule->instructors as $instructor) {
                     $key = $offering->id . ':' . $termKey;
+                    $offeringInstructor = $offering->instructorPool->firstWhere('id', $instructor->id);
+                    $courseRoleId = (int) ($offeringInstructor?->pivot?->course_role_id ?? 0);
+                    $courseRole = $courseRoleNames->get($courseRoleId)
+                        ?? ($offeringInstructor?->pivot?->role_in_course === 'coordinator'
+                            ? 'หัวหน้าวิชา'
+                            : 'อาจารย์ผู้สอน');
+
                     $details[$instructor->id][$key] ??= [
                         'course_offering_id' => (int) $offering->id,
                         'course_code' => (string) ($course->course_code ?: '-'),
@@ -189,14 +200,15 @@ class WorkloadCalculator
                             ? (int) $schedule->term->sequence
                             : null,
                         'term_label' => (string) ($schedule->term?->name ?: 'ไม่ระบุภาคเรียน'),
-                        'roles' => [],
+                        'course_role' => (string) $courseRole,
+                        'schedule_roles' => [],
                         'schedule_count' => 0,
                         'by_category' => [],
                         'total_hours' => 0.0,
                     ];
 
                     $role = $instructor->pivot?->is_lead ? 'ผู้สอนหลัก' : 'ผู้ร่วมสอน';
-                    $details[$instructor->id][$key]['roles'][$role] = true;
+                    $details[$instructor->id][$key]['schedule_roles'][$role] = true;
                     $details[$instructor->id][$key]['schedule_count']++;
                     $details[$instructor->id][$key]['by_category'][$category]
                         = ($details[$instructor->id][$key]['by_category'][$category] ?? 0.0) + $hours;
@@ -207,7 +219,7 @@ class WorkloadCalculator
         foreach ($details as $instructorId => $rows) {
             $details[$instructorId] = collect($rows)
                 ->map(function (array $row): array {
-                    $roles = array_keys($row['roles']);
+                    $roles = array_keys($row['schedule_roles']);
                     usort($roles, fn (string $left, string $right) => match (true) {
                         $left === $right => 0,
                         $left === 'ผู้สอนหลัก' => -1,
@@ -215,7 +227,7 @@ class WorkloadCalculator
                         default => strcmp($left, $right),
                     });
 
-                    $row['roles'] = $roles;
+                    $row['schedule_roles'] = $roles;
                     $row['by_category'] = array_map(
                         fn ($hours) => round($hours, 1),
                         $row['by_category']
