@@ -3916,7 +3916,7 @@ html:not(.tpss-page-ready) :where(
     padding: 9px 36px 9px 12px;
     border: 1px solid var(--border);
     border-radius: var(--r-md);
-    background: var(--surface);
+    background-color: var(--surface);
     color: var(--fg-1);
     font: inherit;
 }
@@ -3933,7 +3933,7 @@ html:not(.tpss-page-ready) :where(
 .filter-select-control:disabled {
     cursor: not-allowed;
     opacity: .58;
-    background: var(--bg-2);
+    background-color: var(--bg-2);
 }
 
 [data-async-filter-scope].is-filter-loading {

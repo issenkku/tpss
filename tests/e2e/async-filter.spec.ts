@@ -17,6 +17,35 @@ test.describe('server-backed filters', () => {
 
     const filter = page.getByTestId('offering-year-filter');
     const options = filter.locator('option');
+    const filterShell = page.locator('.course-offering-year-filter');
+    const filterLabel = page.locator('.course-offering-year-label');
+    const trigger = filterShell.locator('.tpss-select-trigger');
+
+    await expect(filterLabel).toHaveText(/ปีการศึกษา/);
+    await expect(trigger).toBeVisible();
+
+    const selectedLabel = (await trigger.locator('.tpss-select-label').textContent())?.trim() ?? '';
+    expect(selectedLabel).not.toMatch(/^ปีการศึกษา/);
+
+    const filterAppearance = await filterShell.evaluate((shell) => {
+      const triggerElement = shell.querySelector<HTMLElement>('.tpss-select-trigger');
+      if (!triggerElement) throw new Error('Missing custom year select trigger');
+
+      const shellStyle = getComputedStyle(shell);
+      const triggerStyle = getComputedStyle(triggerElement);
+
+      return {
+        shellBorderWidth: shellStyle.borderTopWidth,
+        triggerBorderWidth: triggerStyle.borderTopWidth,
+        triggerHeight: triggerStyle.height,
+      };
+    });
+
+    expect(filterAppearance).toEqual({
+      shellBorderWidth: '0px',
+      triggerBorderWidth: '1px',
+      triggerHeight: '44px',
+    });
 
     const currentValue = await filter.inputValue();
     const nextValue = await options.evaluateAll((items, selected) =>

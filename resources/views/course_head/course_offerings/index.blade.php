@@ -19,15 +19,7 @@
         @if($availableYears->count() > 0)
             <form method="GET"
                   action="{{ route('maker.course_offerings.index') }}"
-                  class="course-offering-year-filter"
-                  style="
-                display:inline-flex;
-                align-items:stretch;
-                border:2px solid var(--brand-navy);
-                border-radius:10px;
-                overflow:hidden;
-                background:var(--surface);
-            ">
+                  class="course-offering-year-filter">
                 <x-filter-select
                     id="year-filter"
                     name="year"
@@ -48,7 +40,7 @@
                     </x-slot:labelContent>
                         @foreach($availableYears as $year)
                             <option value="{{ $year->id }}" @selected($year->id === $selectedYearId)>
-                                ปีการศึกษา {{ $year->name }}@if($year->is_active) · ปัจจุบัน @endif
+                                {{ $year->name }}@if($year->is_active) · ปัจจุบัน @endif
                             </option>
                         @endforeach
                 </x-filter-select>
@@ -386,40 +378,70 @@
             border-color: color-mix(in oklch, var(--brand-navy) 36%, var(--border));
         }
 
+        .course-offering-year-filter {
+            width: clamp(240px, 26vw, 320px);
+            margin: 0;
+        }
+
         .course-offering-year-select {
-            width: clamp(210px, 24vw, 300px);
+            width: 100%;
             min-width: 0;
         }
 
         .course-offering-year-field {
-            display: contents;
+            display: grid;
+            gap: 6px;
+        }
+
+        .course-offering-year-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            width: fit-content;
+            margin: 0;
+            color: var(--fg-2);
+            font-size: 0.75rem;
+            font-weight: 700;
+            line-height: 1.4;
+        }
+
+        .course-offering-year-label svg {
+            width: 15px;
+            height: 15px;
+            color: color-mix(in oklch, var(--brand-navy) 72%, var(--fg-2));
         }
 
         .course-offering-year-filter .tpss-select {
-            height: 40px;
+            height: 44px;
         }
 
         .course-offering-year-filter .tpss-select-trigger {
-            min-height: 40px;
-            height: 40px;
-            border: 0;
-            border-radius: 0;
-            background: var(--surface);
-            box-shadow: none;
-            padding: 8px 12px 8px 16px;
-            font-size: 0.875rem;
-            font-weight: 700;
-            color: var(--brand-navy);
+            min-height: 44px;
+            height: 44px;
+            border: 1px solid color-mix(in oklch, var(--brand-navy) 24%, var(--border));
+            border-radius: var(--r-md);
+            background-color: var(--surface);
+            box-shadow: 0 1px 2px rgba(0, 36, 84, 0.05);
+            padding: 9px 12px 9px 14px;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--fg-1);
         }
 
-        .course-offering-year-filter .tpss-select-trigger:hover,
-        .course-offering-year-filter .tpss-select-trigger:focus {
+        .course-offering-year-filter .tpss-select-trigger:hover {
             background: color-mix(in oklch, var(--brand-navy) 5%, var(--surface));
-            box-shadow: none;
+            border-color: color-mix(in oklch, var(--brand-navy) 48%, var(--border));
+            box-shadow: 0 3px 8px rgba(0, 36, 84, 0.08);
+        }
+
+        .course-offering-year-filter .tpss-select-trigger:focus {
+            background-color: var(--surface);
+            border-color: var(--brand-navy);
+            box-shadow: 0 0 0 3px color-mix(in oklch, var(--brand-navy) 14%, transparent);
         }
 
         .course-offering-year-filter .tpss-select-menu {
-            min-width: 260px;
+            min-width: 240px;
         }
 
         @media (max-width: 640px) {
@@ -427,13 +449,8 @@
                 width: 100%;
             }
 
-            .course-offering-year-filter label {
-                flex: 0 0 auto;
-            }
-
             .course-offering-year-select {
-                flex: 1 1 auto;
-                width: auto;
+                width: 100%;
             }
         }
     </style>

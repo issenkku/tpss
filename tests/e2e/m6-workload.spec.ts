@@ -46,6 +46,23 @@ test.describe('M6 — Workload report', () => {
     expect(download.suggestedFilename()).toMatch(/\.csv$/);
   });
 
+  test('filter select arrow does not repeat across the control on hover', async ({ page }) => {
+    await login(page);
+    await page.goto('/admin/reports/workload');
+
+    const academicYear = page.locator('#workload-academic-year');
+    await academicYear.hover();
+
+    const backgroundRepeat = await academicYear.evaluate(
+      (select) => getComputedStyle(select).backgroundRepeat,
+    );
+
+    expect(backgroundRepeat.split(',').map((value) => value.trim())).toEqual([
+      'no-repeat',
+      'no-repeat',
+    ]);
+  });
+
   test('year and term filters update without a full page reload', async ({ page }) => {
     await login(page);
     await page.goto('/admin/reports/workload');
