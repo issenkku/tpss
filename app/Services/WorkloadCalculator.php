@@ -144,14 +144,21 @@ class WorkloadCalculator
      *     course_role: string,
      *     schedule_roles: array<int, string>,
      *     schedule_count: int,
+     *     teaching_weeks: int,
      *     by_category: array<string, float>,
-     *     total_hours: float
+     *     total_hours: float,
+     *     weekly_average: float
      * }>>
      */
-    public function facultyCourseDetailsForYear(int $academicYearId, ?int $termSequence = null): array
+    public function facultyCourseDetailsForYear(
+        int $academicYearId,
+        ?int $termSequence = null,
+        int $fallbackTeachingWeeks = 39
+    ): array
     {
         $details = [];
         $courseRoleNames = CourseRole::query()->pluck('name_th', 'id');
+        $fallbackTeachingWeeks = max(1, $fallbackTeachingWeeks);
 
         Schedule::query()
             ->where('status', 'approved')
@@ -164,13 +171,13 @@ class WorkloadCalculator
             ->with([
                 'activityType:id,category',
                 'term:id,name,sequence',
-                'courseOffering:id,course_id',
+                'courseOffering:id,course_id,teaching_weeks',
                 'courseOffering.course:id,course_code,name_th,name_en',
                 'courseOffering.instructorPool:id',
                 'instructors:id',
             ])
             ->get()
-            ->each(function (Schedule $schedule) use (&$details, $courseRoleNames): void {
+            ->each(function (Schedule $schedule) use (&$details, $courseRoleNames, $fallbackTeachingWeeks): void {
                 $offering = $schedule->courseOffering;
                 $course = $offering?->course;
 
@@ -203,6 +210,7 @@ class WorkloadCalculator
                         'course_role' => (string) $courseRole,
                         'schedule_roles' => [],
                         'schedule_count' => 0,
+                        'teaching_weeks' => max(1, (int) ($offering->teaching_weeks ?: $fallbackTeachingWeeks)),
                         'by_category' => [],
                         'total_hours' => 0.0,
                     ];
@@ -233,6 +241,10 @@ class WorkloadCalculator
                         $row['by_category']
                     );
                     $row['total_hours'] = round($row['total_hours'], 1);
+                    $row['weekly_average'] = round(
+                        $row['total_hours'] / max(1, $row['teaching_weeks']),
+                        1
+                    );
 
                     return $row;
                 })

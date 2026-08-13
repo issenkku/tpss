@@ -233,6 +233,7 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
     public function test_workload_report_shows_course_details_and_reconciles_with_instructor_total(): void
     {
         [$head, $offering, $instructor, $group, $lecture, $room] = $this->makeReadyOffering();
+        $offering->update(['teaching_weeks' => 10]);
         $practicum = $this->makePracticumActivityType();
         $courseRole = CourseRole::create([
             'name_th' => 'อาจารย์ประจำกลุ่ม',
@@ -310,7 +311,9 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
             ->assertSee('data-testid="workload-course-details"', false)
             ->assertSee('data-testid="workload-course-role-summary"', false)
             ->assertSee('data-testid="workload-course-role-filter"', false)
+            ->assertSee('data-testid="workload-weekly-average"', false)
             ->assertSee('รายละเอียดภาระงานแยกรายวิชา')
+            ->assertSee('เฉลี่ย/สัปดาห์')
             ->assertSee('บทบาทรายวิชา')
             ->assertSee('อาจารย์ประจำกลุ่ม')
             ->assertSee($offering->course->course_code);
@@ -328,6 +331,9 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
         $this->assertSame(3.0, $course['by_category']['lecture']);
         $this->assertSame(4.0, $course['by_category']['practicum']);
         $this->assertSame(7.0, $course['total_hours']);
+        $this->assertSame(10, $course['teaching_weeks']);
+        $this->assertSame(0.7, $course['weekly_average']);
+        $this->assertSame(0.7, $response->viewData('instructorWeeklyAverages')[$instructor->id]);
         $this->assertSame(
             $response->viewData('instructorHours')[$instructor->id]['total'],
             $course['total_hours']
@@ -362,6 +368,7 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
     public function test_workload_report_exports_csv_with_bom(): void
     {
         [$head, $offering, $instructor, $group, $lecture, $room] = $this->makeReadyOffering();
+        $offering->update(['teaching_weeks' => 10]);
         AcademicYear::where('id', $offering->academic_year_id)->update([
             'start_date' => '2026-01-01',
             'end_date' => '2026-12-31',
@@ -384,7 +391,15 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
         $content = $response->getContent();
         $this->assertStringStartsWith("\xEF\xBB\xBF", $content);   // UTF-8 BOM (Excel ไทย)
         $this->assertStringContainsString('ชั่วโมงตามช่วงที่เลือก', $content); // header
+        $this->assertStringContainsString('เฉลี่ยต่อสัปดาห์ (ชม.)', $content);
         $this->assertStringContainsString('3.5', $content);          // ชั่วโมงจริงของอาจารย์
+
+        $csv = preg_replace('/^\xEF\xBB\xBF/', '', $content);
+        $rows = array_values(array_filter(array_map(
+            'str_getcsv',
+            preg_split('/\r\n|\r|\n/', trim($csv))
+        )));
+        $this->assertSame('0.1', $rows[1][5]);
     }
 
     public function test_workload_report_filters_by_academic_year_and_term_and_preserves_export_filters(): void

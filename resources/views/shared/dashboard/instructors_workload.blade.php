@@ -2,8 +2,9 @@
     $instructorHours = $instructorHours ?? [];
     $showCourseDetails = isset($workloadCourseDetails);
     $workloadCourseDetails = $workloadCourseDetails ?? [];
+    $instructorWeeklyAverages = $instructorWeeklyAverages ?? [];
     $workloadTotalLabel = $workloadTotalLabel ?? 'ทั้งปี';
-    $workloadRows = $instructors->values()->map(function ($instructor) use ($teachingWeeks, $hoursPerWeek, $instructorHours, $workloadCourseDetails, $workloadTotalLabel) {
+    $workloadRows = $instructors->values()->map(function ($instructor) use ($teachingWeeks, $hoursPerWeek, $instructorHours, $workloadCourseDetails, $instructorWeeklyAverages, $workloadTotalLabel) {
         $profile = $instructor->instructorProfile;
         $employmentType = $profile?->employment_type;
         $hasQuota = $profile && $profile->teaching_pct;
@@ -25,9 +26,12 @@
 
         // M6-03 — % การใช้เทียบเกณฑ์ (กราฟแท่ง ใช้ vs เกณฑ์)
         $usagePct = ($quotaValue && $quotaValue > 0) ? (int) round($hours['total'] / $quotaValue * 100) : null;
-        $courseDetails = collect($workloadCourseDetails[$instructor->id] ?? [])->map(function (array $detail) {
+        $rawCourseDetails = collect($workloadCourseDetails[$instructor->id] ?? []);
+        $courseDetails = $rawCourseDetails->map(function (array $detail) use ($teachingWeeks) {
             $categories = $detail['by_category'] ?? [];
             $otherHours = collect($categories)->except(['lecture', 'practicum'])->sum();
+            $weekCount = max(1, (int) ($detail['teaching_weeks'] ?? $teachingWeeks));
+            $weeklyAverage = $detail['weekly_average'] ?? ($detail['total_hours'] / $weekCount);
 
             return [
                 'key' => $detail['course_offering_id'] . ':' . ($detail['term_id'] ?? 'none'),
@@ -41,6 +45,8 @@
                 'practicumHours' => number_format($categories['practicum'] ?? 0, 1),
                 'otherHours' => number_format($otherHours, 1),
                 'totalHours' => number_format($detail['total_hours'], 1),
+                'weekCount' => $weekCount,
+                'weeklyAverage' => number_format($weeklyAverage, 1),
             ];
         })->values();
         $courseRoleSummaries = collect($workloadCourseDetails[$instructor->id] ?? [])
@@ -52,6 +58,10 @@
             ])
             ->sortByDesc(fn ($summary) => (float) $summary['hours'])
             ->values();
+        $weeklyAverage = $instructorWeeklyAverages[$instructor->id]
+            ?? ($rawCourseDetails->isNotEmpty()
+                ? $rawCourseDetails->sum('weekly_average')
+                : (($hours['total'] ?? 0) / max(1, $teachingWeeks)));
 
         return [
             'id' => $instructor->id,
@@ -61,6 +71,7 @@
             'department' => $profile?->department?->name ?: '-',
             'teachingHours' => number_format($hours['accrued'], 1),
             'totalHours' => number_format($hours['total'], 1),
+            'weeklyAverage' => number_format($weeklyAverage, 1),
             'totalLabel' => $workloadTotalLabel,
             'sortHours' => (float) $hours['total'],
             'practicumHours' => number_format($practicumHours, 1),
@@ -155,6 +166,9 @@
                         <td style="text-align: right;">
                             <div style="font-weight: 700; color: var(--fg-1); font-size: 14px; font-variant-numeric: tabular-nums;" x-text="row.teachingHours"></div>
                             <div style="font-size: 11px; color: var(--fg-3);">/ <span style="font-variant-numeric: tabular-nums;" x-text="row.totalHours"></span> <span x-text="row.totalLabel"></span></div>
+                            <div class="workload-weekly-average" data-testid="workload-weekly-average">
+                                เฉลี่ย <span x-text="row.weeklyAverage"></span> ชม./สัปดาห์
+                            </div>
                             <template x-if="row.hasPracticum">
                                 <div style="font-size: 10px; color: var(--fg-3); margin-top: 2px;">ฝึกปฏิบัติ <span style="font-variant-numeric: tabular-nums; font-weight: 600;" x-text="row.practicumHours"></span> ชม.</div>
                             </template>
@@ -197,6 +211,7 @@
                                         <div class="workload-course-detail-total">
                                             <span>รวมตามช่วงที่เลือก</span>
                                             <strong><span x-text="row.totalHours"></span> ชม.</strong>
+                                            <small>เฉลี่ย <span x-text="row.weeklyAverage"></span> ชม./สัปดาห์</small>
                                         </div>
                                     </div>
 
@@ -231,6 +246,7 @@
                                                     <th class="is-number">ฝึกปฏิบัติ</th>
                                                     <th class="is-number">อื่น ๆ</th>
                                                     <th class="is-number">รวม</th>
+                                                    <th class="is-number">เฉลี่ย/สัปดาห์</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -254,6 +270,10 @@
                                                         <td class="is-number"><span x-text="detail.practicumHours"></span> ชม.</td>
                                                         <td class="is-number"><span x-text="detail.otherHours"></span> ชม.</td>
                                                         <td class="is-number is-total"><span x-text="detail.totalHours"></span> ชม.</td>
+                                                        <td class="is-number workload-detail-average">
+                                                            <strong><span x-text="detail.weeklyAverage"></span> ชม.</strong>
+                                                            <small><span x-text="detail.weekCount"></span> สัปดาห์</small>
+                                                        </td>
                                                     </tr>
                                                 </template>
                                             </tbody>
@@ -569,6 +589,15 @@
     .workload-col-hours { width: 16%; }
     .workload-col-quota { width: 18%; }
 
+    .workload-weekly-average {
+        margin-top: 3px;
+        color: color-mix(in oklch, var(--brand-navy) 72%, var(--fg-3));
+        font-size: 10px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.35;
+    }
+
     .workload-code-cell,
     .workload-name-cell,
     .workload-department-cell,
@@ -696,6 +725,22 @@
         font-size: inherit;
     }
 
+    .workload-course-detail-total small {
+        display: block;
+        margin-top: 2px;
+        color: color-mix(in oklch, var(--brand-navy) 70%, var(--fg-3));
+        font-size: 10px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.4;
+    }
+
+    .workload-course-detail-total small span {
+        display: inline;
+        color: inherit;
+        font-size: inherit;
+    }
+
     .workload-role-summary {
         display: flex;
         align-items: stretch;
@@ -773,7 +818,7 @@
 
     .workload-card table.workload-course-detail-table {
         width: 100%;
-        min-width: 1040px;
+        min-width: 1140px;
         table-layout: auto;
     }
 
@@ -823,6 +868,25 @@
     .workload-card .workload-course-detail-table .is-total {
         color: var(--brand-navy);
         font-weight: 800;
+    }
+
+    .workload-detail-average strong,
+    .workload-detail-average small {
+        display: block;
+        white-space: nowrap;
+    }
+
+    .workload-detail-average strong {
+        color: var(--brand-navy);
+        font-size: 11px;
+        font-weight: 800;
+    }
+
+    .workload-detail-average small {
+        margin-top: 1px;
+        color: var(--fg-3);
+        font-size: 9px;
+        line-height: 1.35;
     }
 
     .workload-detail-course-code {

@@ -106,6 +106,7 @@ test.describe('M6 — Workload report', () => {
     await expect(details.getByRole('columnheader', { name: 'บทบาทรายวิชา' })).toBeVisible();
     await expect(details.getByRole('columnheader', { name: 'หน้าที่ในคาบ' })).toBeVisible();
     await expect(details.getByRole('columnheader', { name: 'รวม' })).toBeVisible();
+    await expect(details.getByRole('columnheader', { name: 'เฉลี่ย/สัปดาห์' })).toBeVisible();
 
     const roleFilter = details.getByTestId('workload-course-role-filter').first();
     const selectedRole = (await roleFilter.locator('.workload-role-summary-name').textContent())?.trim() ?? '';

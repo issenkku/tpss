@@ -54,14 +54,14 @@ class WorkloadReportController extends Controller
 
     public function export(Request $request): Response
     {
-        $data = $this->reportData($request);
+        $data = $this->reportData($request, includeCourseDetails: true);
 
         $termSuffix = $data['termSequence'] ? '-term-' . $data['termSequence'] : '';
         $filename = 'workload-report-' . ($data['year']?->name ?? 'all') . $termSuffix . '.csv';
         $calculator = new WorkloadCalculator;
 
         $handle = fopen('php://temp', 'r+');
-        fputcsv($handle, ['รหัส', 'ชื่อ-นามสกุล', 'ภาควิชา', 'ชั่วโมงสะสมถึงวันนี้', 'ชั่วโมงตามช่วงที่เลือก', 'ชั่วโมงฝึกปฏิบัติ', 'เกณฑ์ทั้งปี (ชม.)', 'ใช้ไปเทียบเกณฑ์ทั้งปี (%)']);
+        fputcsv($handle, ['รหัส', 'ชื่อ-นามสกุล', 'ภาควิชา', 'ชั่วโมงสะสมถึงวันนี้', 'ชั่วโมงตามช่วงที่เลือก', 'เฉลี่ยต่อสัปดาห์ (ชม.)', 'ชั่วโมงฝึกปฏิบัติ', 'เกณฑ์ทั้งปี (ชม.)', 'ใช้ไปเทียบเกณฑ์ทั้งปี (%)']);
 
         foreach ($data['instructors'] as $instructor) {
             $hours = $data['instructorHours'][$instructor->id] ?? ['accrued' => 0, 'total' => 0, 'by_category' => []];
@@ -74,6 +74,7 @@ class WorkloadReportController extends Controller
                 $instructor->instructorProfile?->department?->name ?? '-',
                 $hours['accrued'],
                 $hours['total'],
+                $data['instructorWeeklyAverages'][$instructor->id] ?? 0,
                 $hours['by_category']['practicum'] ?? 0,
                 $quota !== null ? round($quota, 1) : '-',
                 $usagePct ?? '-',
@@ -101,6 +102,7 @@ class WorkloadReportController extends Controller
      *     instructors: Collection,
      *     instructorHours: array,
      *     instructorCourseDetails: array,
+     *     instructorWeeklyAverages: array<int, float>,
      *     teachingWeeks: int,
      *     hoursPerWeek: int
      * }
@@ -133,14 +135,26 @@ class WorkloadReportController extends Controller
             ->with(['instructorProfile.department'])
             ->get();
         $calculator = new WorkloadCalculator;
+        $teachingWeeks = max(1, (int) SystemSetting::get('teaching_load_weeks', 39));
+        $hoursPerWeek = (int) SystemSetting::get('teaching_quota_hours_per_week', 35);
         $instructorHours = $year
             ? $calculator->facultyTotalsForYear($year->id, null, $termSequence)
             : [];
         $instructorCourseDetails = $year && $includeCourseDetails
-            ? $calculator->facultyCourseDetailsForYear($year->id, $termSequence)
+            ? $calculator->facultyCourseDetailsForYear($year->id, $termSequence, $teachingWeeks)
             : [];
-        $teachingWeeks = (int) SystemSetting::get('teaching_load_weeks', 39);
-        $hoursPerWeek = (int) SystemSetting::get('teaching_quota_hours_per_week', 35);
+        $instructorWeeklyAverages = collect($instructorHours)
+            ->mapWithKeys(function (array $hours, int|string $instructorId) use ($instructorCourseDetails, $teachingWeeks, $termSequence): array {
+                $courseDetails = $instructorCourseDetails[$instructorId] ?? [];
+                // ภาคเรียนเดียว: รายวิชาเกิดพร้อมกันจึงรวมค่าเฉลี่ยรายวิชาได้
+                // ทั้งปี: รายวิชาต่างภาคเรียนไม่เกิดพร้อมกัน จึงหารชั่วโมงรวมด้วยสัปดาห์ภาระงานทั้งปี
+                $average = $termSequence && $courseDetails
+                    ? collect($courseDetails)->sum('weekly_average')
+                    : (($hours['total'] ?? 0) / $teachingWeeks);
+
+                return [(int) $instructorId => round($average, 1)];
+            })
+            ->all();
 
         return compact(
             'year',
@@ -151,6 +165,7 @@ class WorkloadReportController extends Controller
             'instructors',
             'instructorHours',
             'instructorCourseDetails',
+            'instructorWeeklyAverages',
             'teachingWeeks',
             'hoursPerWeek'
         );
