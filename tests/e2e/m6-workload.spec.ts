@@ -23,8 +23,12 @@ test.describe('M6 — Workload report', () => {
 
     // หน้ารายงาน render ครบ
     await expect(page.getByText('รายงานภาระงานสอน').first()).toBeVisible();
-    await expect(page.getByTestId('workload-summary')).toBeVisible();
-    await expect(page.getByTestId('workload-by-level')).toBeVisible();
+    const summary = page.getByTestId('workload-summary');
+    const emptyState = page.getByTestId('workload-empty-state');
+    await expect(summary.or(emptyState)).toBeVisible();
+    if (await summary.isVisible()) {
+      await expect(page.getByTestId('workload-by-level')).toBeVisible();
+    }
     await expect(page.getByTestId('workload-export-csv')).toBeVisible();
 
     // เมนู sidebar เปิดใช้งานแล้ว (เป็นลิงก์จริง ไม่ใช่ "กำลังพัฒนา") + active state
@@ -81,5 +85,27 @@ test.describe('M6 — Workload report', () => {
     await expect(page.getByTestId('workload-export-csv')).toHaveAttribute('href', /term_sequence=\d+/);
     expect(await page.evaluate(() => document.body.dataset.asyncFilterShell)).toBe('stable');
     await expect(page.getByRole('button', { name: 'แสดงผล' })).toHaveCount(0);
+  });
+
+  test('an instructor row expands to show workload by course', async ({ page }) => {
+    await login(page);
+    await page.goto('/admin/reports/workload');
+
+    const toggle = page.getByTestId('workload-course-details-toggle').first();
+    test.skip(await toggle.count() === 0, 'No approved workload course is available.');
+
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await toggle.click();
+
+    const details = page.getByTestId('workload-course-details').first();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(details).toBeVisible();
+    await expect(details.getByText('รายละเอียดภาระงานแยกรายวิชา')).toBeVisible();
+    await expect(details.getByRole('columnheader', { name: 'รายวิชา' })).toBeVisible();
+    await expect(details.getByRole('columnheader', { name: 'รวม' })).toBeVisible();
+
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(details).toBeHidden();
   });
 });

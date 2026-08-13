@@ -65,7 +65,11 @@
             @include('admin.reports._summary')
         @endif
 
-        @include('shared.dashboard.instructors_workload', ['workloadTotalLabel' => $selectedPeriodLabel])
+        @include('shared.dashboard.instructors_workload', [
+            'workloadTotalLabel' => $selectedPeriodLabel,
+            'workloadCourseDetails' => $instructorCourseDetails,
+            'workloadPageSize' => 10,
+        ])
     </x-async-filter>
 
     <style>

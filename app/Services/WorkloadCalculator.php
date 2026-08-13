@@ -130,6 +130,113 @@ class WorkloadCalculator
     }
 
     /**
+     * รายละเอียดภาระงานรายอาจารย์ แยกตามรายวิชาและภาคเรียน
+     * ใช้กติกาเดียวกับ facultyTotalsForYear เพื่อให้ผลรวมของรายละเอียดตรงกับยอดสรุปเสมอ
+     *
+     * @return array<int, array<int, array{
+     *     course_offering_id: int,
+     *     course_code: string,
+     *     course_name: string,
+     *     term_id: ?int,
+     *     term_sequence: ?int,
+     *     term_label: string,
+     *     roles: array<int, string>,
+     *     schedule_count: int,
+     *     by_category: array<string, float>,
+     *     total_hours: float
+     * }>>
+     */
+    public function facultyCourseDetailsForYear(int $academicYearId, ?int $termSequence = null): array
+    {
+        $details = [];
+
+        Schedule::query()
+            ->where('status', 'approved')
+            ->whereHas('activityType', fn ($q) => $q->where('counts_toward_workload', true))
+            ->whereHas('courseOffering', fn ($q) => $q->where('academic_year_id', $academicYearId))
+            ->when($termSequence, fn ($q) => $q->whereHas(
+                'term',
+                fn ($termQuery) => $termQuery->where('sequence', $termSequence)
+            ))
+            ->with([
+                'activityType:id,category',
+                'term:id,name,sequence',
+                'courseOffering:id,course_id',
+                'courseOffering.course:id,course_code,name_th,name_en',
+                'instructors:id',
+            ])
+            ->get()
+            ->each(function (Schedule $schedule) use (&$details): void {
+                $offering = $schedule->courseOffering;
+                $course = $offering?->course;
+
+                if (! $offering || ! $course) {
+                    return;
+                }
+
+                $hours = $this->hoursForInstructor($schedule);
+                $category = $schedule->activityType?->category ?: 'other';
+                $termKey = $schedule->term_id ?: 0;
+
+                foreach ($schedule->instructors as $instructor) {
+                    $key = $offering->id . ':' . $termKey;
+                    $details[$instructor->id][$key] ??= [
+                        'course_offering_id' => (int) $offering->id,
+                        'course_code' => (string) ($course->course_code ?: '-'),
+                        'course_name' => (string) ($course->name_th ?: $course->name_en ?: '-'),
+                        'term_id' => $schedule->term_id ? (int) $schedule->term_id : null,
+                        'term_sequence' => $schedule->term?->sequence
+                            ? (int) $schedule->term->sequence
+                            : null,
+                        'term_label' => (string) ($schedule->term?->name ?: 'ไม่ระบุภาคเรียน'),
+                        'roles' => [],
+                        'schedule_count' => 0,
+                        'by_category' => [],
+                        'total_hours' => 0.0,
+                    ];
+
+                    $role = $instructor->pivot?->is_lead ? 'ผู้สอนหลัก' : 'ผู้ร่วมสอน';
+                    $details[$instructor->id][$key]['roles'][$role] = true;
+                    $details[$instructor->id][$key]['schedule_count']++;
+                    $details[$instructor->id][$key]['by_category'][$category]
+                        = ($details[$instructor->id][$key]['by_category'][$category] ?? 0.0) + $hours;
+                    $details[$instructor->id][$key]['total_hours'] += $hours;
+                }
+            });
+
+        foreach ($details as $instructorId => $rows) {
+            $details[$instructorId] = collect($rows)
+                ->map(function (array $row): array {
+                    $roles = array_keys($row['roles']);
+                    usort($roles, fn (string $left, string $right) => match (true) {
+                        $left === $right => 0,
+                        $left === 'ผู้สอนหลัก' => -1,
+                        $right === 'ผู้สอนหลัก' => 1,
+                        default => strcmp($left, $right),
+                    });
+
+                    $row['roles'] = $roles;
+                    $row['by_category'] = array_map(
+                        fn ($hours) => round($hours, 1),
+                        $row['by_category']
+                    );
+                    $row['total_hours'] = round($row['total_hours'], 1);
+
+                    return $row;
+                })
+                ->sortBy(fn (array $row) => sprintf(
+                    '%s|%04d',
+                    $row['course_code'],
+                    $row['term_sequence'] ?? 9999
+                ))
+                ->values()
+                ->all();
+        }
+
+        return $details;
+    }
+
+    /**
      * รวมชั่วโมงภาระงานทั้งคณะแยกตามระดับหลักสูตร (person-hours — สอดคล้องกับ facultyTotalsForYear)
      * ผู้บริหารดูว่าอาจารย์สอนระดับใดบ้าง จำนวนเท่าไร
      *

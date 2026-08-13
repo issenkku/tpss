@@ -1,7 +1,9 @@
 @php
     $instructorHours = $instructorHours ?? [];
+    $showCourseDetails = isset($workloadCourseDetails);
+    $workloadCourseDetails = $workloadCourseDetails ?? [];
     $workloadTotalLabel = $workloadTotalLabel ?? 'ทั้งปี';
-    $workloadRows = $instructors->values()->map(function ($instructor) use ($teachingWeeks, $hoursPerWeek, $instructorHours, $workloadTotalLabel) {
+    $workloadRows = $instructors->values()->map(function ($instructor) use ($teachingWeeks, $hoursPerWeek, $instructorHours, $workloadCourseDetails, $workloadTotalLabel) {
         $profile = $instructor->instructorProfile;
         $employmentType = $profile?->employment_type;
         $hasQuota = $profile && $profile->teaching_pct;
@@ -23,6 +25,23 @@
 
         // M6-03 — % การใช้เทียบเกณฑ์ (กราฟแท่ง ใช้ vs เกณฑ์)
         $usagePct = ($quotaValue && $quotaValue > 0) ? (int) round($hours['total'] / $quotaValue * 100) : null;
+        $courseDetails = collect($workloadCourseDetails[$instructor->id] ?? [])->map(function (array $detail) {
+            $categories = $detail['by_category'] ?? [];
+            $otherHours = collect($categories)->except(['lecture', 'practicum'])->sum();
+
+            return [
+                'key' => $detail['course_offering_id'] . ':' . ($detail['term_id'] ?? 'none'),
+                'courseCode' => $detail['course_code'],
+                'courseName' => $detail['course_name'],
+                'termLabel' => $detail['term_label'],
+                'roles' => $detail['roles'],
+                'scheduleCount' => $detail['schedule_count'],
+                'lectureHours' => number_format($categories['lecture'] ?? 0, 1),
+                'practicumHours' => number_format($categories['practicum'] ?? 0, 1),
+                'otherHours' => number_format($otherHours, 1),
+                'totalHours' => number_format($detail['total_hours'], 1),
+            ];
+        })->values();
 
         return [
             'id' => $instructor->id,
@@ -41,6 +60,7 @@
             'hasQuota' => (bool) $hasQuota,
             'quota' => $quota,
             'period' => $period,
+            'courseDetails' => $courseDetails,
             'searchText' => mb_strtolower(trim(($instructor->employee_id ?? '') . ' ' . $instructor->formatted_name)),
         ];
     })
@@ -95,8 +115,8 @@
                     <th style="text-align: right; padding-right: 24px;">เกณฑ์ภาระงานสอน</th>
                 </tr>
             </thead>
-            <tbody>
-                <template x-for="row in pagedRows" :key="row.id">
+            <template x-for="row in pagedRows" :key="row.id">
+                <tbody>
                     <tr :class="{ 'wl-row-over': row.overQuota }">
                         <td class="workload-code-cell" style="font-weight: 600; color: var(--fg-2);" x-text="row.employeeId"></td>
                         <td class="workload-name-cell">
@@ -104,6 +124,21 @@
                             <template x-if="row.employmentType">
                                 <div class="workload-sub-text" style="font-size: 11px; color: var(--fg-3); margin-top: 2px;" x-text="row.employmentType"></div>
                             </template>
+                            @if($showCourseDetails)
+                                <template x-if="row.courseDetails.length > 0">
+                                    <button type="button"
+                                            class="workload-detail-toggle"
+                                            data-testid="workload-course-details-toggle"
+                                            :aria-expanded="(expandedRowId === row.id).toString()"
+                                            :aria-controls="`workload-course-details-${row.id}`"
+                                            @click="toggleDetails(row.id)">
+                                        <span x-text="expandedRowId === row.id ? 'ซ่อนรายละเอียด' : `ดู ${row.courseDetails.length} รายวิชา`"></span>
+                                        <svg viewBox="0 0 20 20" aria-hidden="true" :class="{ 'is-open': expandedRowId === row.id }">
+                                            <path d="m6 8 4 4 4-4"></path>
+                                        </svg>
+                                    </button>
+                                </template>
+                            @endif
                         </td>
                         <td class="workload-department-cell" style="color: var(--fg-2); font-size: 13px;" x-text="row.department"></td>
                         <td style="text-align: right;">
@@ -133,8 +168,74 @@
                             </template>
                         </td>
                     </tr>
-                </template>
 
+                    @if($showCourseDetails)
+                        <tr class="workload-course-detail-row"
+                            x-cloak
+                            x-show="expandedRowId === row.id">
+                            <td colspan="5">
+                                <section class="workload-course-detail"
+                                    :id="`workload-course-details-${row.id}`"
+                                    data-testid="workload-course-details"
+                                    :aria-label="`รายละเอียดภาระงานแยกรายวิชาของ ${row.name}`">
+                                    <div class="workload-course-detail-head">
+                                        <div>
+                                            <div class="workload-course-detail-title">รายละเอียดภาระงานแยกรายวิชา</div>
+                                            <div class="workload-course-detail-subtitle" x-text="row.name"></div>
+                                        </div>
+                                        <div class="workload-course-detail-total">
+                                            <span>รวมตามช่วงที่เลือก</span>
+                                            <strong><span x-text="row.totalHours"></span> ชม.</strong>
+                                        </div>
+                                    </div>
+
+                                    <div class="workload-course-detail-scroll">
+                                        <table class="workload-course-detail-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>รายวิชา</th>
+                                                    <th>ภาคเรียน</th>
+                                                    <th>บทบาทในคาบ</th>
+                                                    <th class="is-number">จำนวนคาบ</th>
+                                                    <th class="is-number">บรรยาย</th>
+                                                    <th class="is-number">ฝึกปฏิบัติ</th>
+                                                    <th class="is-number">อื่น ๆ</th>
+                                                    <th class="is-number">รวม</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <template x-for="detail in row.courseDetails" :key="detail.key">
+                                                    <tr>
+                                                        <td>
+                                                            <div class="workload-detail-course-code" x-text="detail.courseCode"></div>
+                                                            <div class="workload-detail-course-name" x-text="detail.courseName"></div>
+                                                        </td>
+                                                        <td x-text="detail.termLabel"></td>
+                                                        <td>
+                                                            <div class="workload-detail-roles">
+                                                                <template x-for="role in detail.roles" :key="role">
+                                                                    <span x-text="role"></span>
+                                                                </template>
+                                                            </div>
+                                                        </td>
+                                                        <td class="is-number"><span x-text="detail.scheduleCount"></span> คาบ</td>
+                                                        <td class="is-number"><span x-text="detail.lectureHours"></span> ชม.</td>
+                                                        <td class="is-number"><span x-text="detail.practicumHours"></span> ชม.</td>
+                                                        <td class="is-number"><span x-text="detail.otherHours"></span> ชม.</td>
+                                                        <td class="is-number is-total"><span x-text="detail.totalHours"></span> ชม.</td>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </section>
+                            </td>
+                        </tr>
+                    @endif
+                </tbody>
+            </template>
+
+            <tbody>
                 <tr x-show="filteredRows.length === 0">
                     <td colspan="5" style="text-align: center; padding: 40px; color: var(--fg-3);">
                         ไม่พบข้อมูลอาจารย์
@@ -204,6 +305,7 @@
             rows: config.rows || [],
             searchQuery: '',
             currentPage: 1,
+            expandedRowId: null,
             perPage: Math.max(Number(config.perPage || 5), 1),
 
             get filteredRows() {
@@ -252,11 +354,17 @@
 
             resetPage() {
                 this.currentPage = 1;
+                this.expandedRowId = null;
             },
 
             goToPage(page) {
                 if (page === '...') return;
                 this.currentPage = Math.min(Math.max(Number(page), 1), this.totalPages);
+                this.expandedRowId = null;
+            },
+
+            toggleDetails(rowId) {
+                this.expandedRowId = this.expandedRowId === rowId ? null : rowId;
             },
         };
     };
@@ -428,6 +536,209 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+
+    .workload-detail-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        min-height: 28px;
+        margin-top: 5px;
+        padding: 3px 7px;
+        border: 1px solid color-mix(in oklch, var(--brand-navy) 22%, var(--border));
+        border-radius: var(--r-sm);
+        background: color-mix(in oklch, var(--brand-navy) 4%, var(--surface));
+        color: var(--brand-navy);
+        font-family: inherit;
+        font-size: 11px;
+        font-weight: 750;
+        line-height: 1.35;
+        cursor: pointer;
+        transition: background 160ms ease, border-color 160ms ease;
+    }
+
+    .workload-detail-toggle:hover {
+        border-color: color-mix(in oklch, var(--brand-navy) 45%, var(--border));
+        background: color-mix(in oklch, var(--brand-navy) 9%, var(--surface));
+    }
+
+    .workload-detail-toggle:focus-visible {
+        outline: 2px solid var(--brand-navy);
+        outline-offset: 2px;
+    }
+
+    .workload-detail-toggle svg {
+        width: 15px;
+        height: 15px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        transition: transform 180ms cubic-bezier(.22, 1, .36, 1);
+    }
+
+    .workload-detail-toggle svg.is-open {
+        transform: rotate(180deg);
+    }
+
+    .workload-card tbody tr.workload-course-detail-row,
+    .workload-card tbody tr.workload-course-detail-row:hover {
+        height: auto;
+        background: color-mix(in oklch, var(--brand-navy) 4%, var(--surface));
+        box-shadow: none;
+    }
+
+    .workload-course-detail-row > td {
+        padding: 0;
+        overflow: visible;
+    }
+
+    .workload-course-detail {
+        padding: 18px 20px 20px;
+        border-top: 1px solid color-mix(in oklch, var(--brand-navy) 18%, var(--border));
+        border-bottom: 1px solid color-mix(in oklch, var(--brand-navy) 18%, var(--border));
+        background: color-mix(in oklch, var(--brand-navy) 3%, var(--surface));
+    }
+
+    .workload-course-detail-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 12px;
+    }
+
+    .workload-course-detail-title {
+        color: var(--fg-1);
+        font-size: 14px;
+        font-weight: 800;
+        line-height: 1.55;
+    }
+
+    .workload-course-detail-subtitle {
+        margin-top: 1px;
+        color: var(--fg-3);
+        font-size: 12px;
+        line-height: 1.55;
+    }
+
+    .workload-course-detail-total {
+        flex: 0 0 auto;
+        text-align: right;
+    }
+
+    .workload-course-detail-total span {
+        display: block;
+        color: var(--fg-3);
+        font-size: 10px;
+        line-height: 1.4;
+    }
+
+    .workload-course-detail-total strong {
+        display: block;
+        margin-top: 2px;
+        color: var(--brand-navy);
+        font-size: 15px;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.4;
+    }
+
+    .workload-course-detail-total strong span {
+        display: inline;
+        color: inherit;
+        font-size: inherit;
+    }
+
+    .workload-course-detail-scroll {
+        overflow-x: auto;
+        border: 1px solid color-mix(in oklch, var(--brand-navy) 17%, var(--border));
+        border-radius: var(--r-md);
+        background: var(--surface);
+    }
+
+    .workload-card table.workload-course-detail-table {
+        width: 100%;
+        min-width: 880px;
+        table-layout: auto;
+    }
+
+    .workload-card .workload-course-detail-table thead tr {
+        height: 42px;
+        background: color-mix(in oklch, var(--brand-navy) 7%, var(--surface));
+    }
+
+    .workload-card .workload-course-detail-table tbody tr,
+    .workload-card .workload-course-detail-table tbody tr:nth-child(even),
+    .workload-card .workload-course-detail-table tbody tr:hover {
+        height: auto;
+        min-height: 54px;
+        background: var(--surface);
+        box-shadow: none;
+    }
+
+    .workload-card .workload-course-detail-table tbody tr + tr {
+        border-top: 1px solid color-mix(in oklch, var(--brand-navy) 10%, var(--border));
+    }
+
+    .workload-card .workload-course-detail-table th,
+    .workload-card .workload-course-detail-table td {
+        padding: 9px 11px;
+        overflow: visible;
+        color: var(--fg-2);
+        font-size: 11px;
+        line-height: 1.5;
+        white-space: nowrap;
+    }
+
+    .workload-card .workload-course-detail-table th {
+        font-weight: 800;
+    }
+
+    .workload-card .workload-course-detail-table th:first-child,
+    .workload-card .workload-course-detail-table td:first-child {
+        min-width: 190px;
+        white-space: normal;
+    }
+
+    .workload-card .workload-course-detail-table .is-number {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .workload-card .workload-course-detail-table .is-total {
+        color: var(--brand-navy);
+        font-weight: 800;
+    }
+
+    .workload-detail-course-code {
+        color: var(--brand-navy);
+        font-weight: 800;
+    }
+
+    .workload-detail-course-name {
+        margin-top: 1px;
+        color: var(--fg-3);
+    }
+
+    .workload-detail-roles {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+
+    .workload-detail-roles span {
+        display: inline-flex;
+        align-items: center;
+        min-height: 23px;
+        padding: 2px 7px;
+        border: 1px solid color-mix(in oklch, var(--brand-navy) 14%, var(--border));
+        border-radius: 999px;
+        background: color-mix(in oklch, var(--brand-navy) 5%, var(--surface));
+        color: color-mix(in oklch, var(--brand-navy) 78%, var(--fg-2));
+        font-size: 10px;
+        font-weight: 700;
     }
 
     /* M6-03 — แท่งภาระงาน ใช้ vs เกณฑ์ */

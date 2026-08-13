@@ -20,7 +20,7 @@ class WorkloadReportController extends Controller
 {
     public function index(Request $request)
     {
-        $data = $this->reportData($request);
+        $data = $this->reportData($request, includeCourseDetails: true);
 
         $calculator = new WorkloadCalculator;
         $summary = $calculator->facultySummary(
@@ -100,11 +100,12 @@ class WorkloadReportController extends Controller
      *     selectedPeriodLabel: string,
      *     instructors: Collection,
      *     instructorHours: array,
+     *     instructorCourseDetails: array,
      *     teachingWeeks: int,
      *     hoursPerWeek: int
      * }
      */
-    private function reportData(Request $request): array
+    private function reportData(Request $request, bool $includeCourseDetails = false): array
     {
         $validatedYear = $request->validate([
             'academic_year_id' => ['nullable', 'integer', Rule::exists('academic_years', 'id')],
@@ -131,8 +132,12 @@ class WorkloadReportController extends Controller
         $instructors = User::whereHas('roles', fn ($q) => $q->where('role', 'instructor'))
             ->with(['instructorProfile.department'])
             ->get();
+        $calculator = new WorkloadCalculator;
         $instructorHours = $year
-            ? (new WorkloadCalculator)->facultyTotalsForYear($year->id, null, $termSequence)
+            ? $calculator->facultyTotalsForYear($year->id, null, $termSequence)
+            : [];
+        $instructorCourseDetails = $year && $includeCourseDetails
+            ? $calculator->facultyCourseDetailsForYear($year->id, $termSequence)
             : [];
         $teachingWeeks = (int) SystemSetting::get('teaching_load_weeks', 39);
         $hoursPerWeek = (int) SystemSetting::get('teaching_quota_hours_per_week', 35);
@@ -145,6 +150,7 @@ class WorkloadReportController extends Controller
             'selectedPeriodLabel',
             'instructors',
             'instructorHours',
+            'instructorCourseDetails',
             'teachingWeeks',
             'hoursPerWeek'
         );

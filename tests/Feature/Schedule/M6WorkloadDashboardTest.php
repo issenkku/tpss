@@ -225,6 +225,98 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
         $this->assertSame(0.0, $byLevel['master']);
     }
 
+    public function test_workload_report_shows_course_details_and_reconciles_with_instructor_total(): void
+    {
+        [$head, $offering, $instructor, $group, $lecture, $room] = $this->makeReadyOffering();
+        $practicum = $this->makePracticumActivityType();
+        $year = $offering->academicYear;
+        $calendar = AcademicCalendar::create([
+            'academic_year_id' => $year->id,
+            'name' => 'ทุกหลักสูตร',
+        ]);
+        $termOne = Term::create([
+            'academic_calendar_id' => $calendar->id,
+            'sequence' => 1,
+            'name' => 'ภาคเรียนที่ 1',
+            'start_date' => '2026-08-01',
+            'end_date' => '2026-10-31',
+        ]);
+        $termTwo = Term::create([
+            'academic_calendar_id' => $calendar->id,
+            'sequence' => 2,
+            'name' => 'ภาคเรียนที่ 2',
+            'start_date' => '2026-11-01',
+            'end_date' => '2026-12-31',
+        ]);
+
+        $leadSchedule = $this->makeSchedule($offering, $lecture, $room, [$instructor], [$group], [
+            'term_id' => $termOne->id,
+            'status' => 'approved',
+            'start_date' => '2026-08-03',
+            'end_date' => '2026-08-03',
+            'start_time' => '09:00',
+            'end_time' => '12:00',
+        ]);
+        $leadSchedule->instructors()->updateExistingPivot($instructor->id, ['is_lead' => true]);
+
+        $this->makeSchedule($offering, $practicum, $room, [$instructor], [$group], [
+            'term_id' => $termOne->id,
+            'status' => 'approved',
+            'start_date' => '2026-08-04',
+            'end_date' => '2026-08-04',
+            'start_time' => '08:00',
+            'end_time' => '12:00',
+        ]);
+
+        // ต้องไม่รวมคาบร่างและคาบของภาคเรียนอื่นในรายละเอียดที่กรองแล้ว
+        $this->makeSchedule($offering, $lecture, $room, [$instructor], [$group], [
+            'term_id' => $termOne->id,
+            'status' => 'draft',
+            'start_date' => '2026-08-05',
+            'end_date' => '2026-08-05',
+            'start_time' => '08:00',
+            'end_time' => '14:00',
+        ]);
+        $this->makeSchedule($offering, $lecture, $room, [$instructor], [$group], [
+            'term_id' => $termTwo->id,
+            'status' => 'approved',
+            'start_date' => '2026-11-03',
+            'end_date' => '2026-11-03',
+            'start_time' => '10:00',
+            'end_time' => '12:00',
+        ]);
+
+        $admin = $this->makeUser('admin');
+        $this->actingAs($admin)->withSession(['active_role' => 'admin']);
+
+        $response = $this->get(route('admin.reports.workload', [
+            'academic_year_id' => $year->id,
+            'term_sequence' => 1,
+        ]))
+            ->assertOk()
+            ->assertSee('data-testid="workload-course-details-toggle"', false)
+            ->assertSee('data-testid="workload-course-details"', false)
+            ->assertSee('รายละเอียดภาระงานแยกรายวิชา')
+            ->assertSee($offering->course->course_code);
+
+        $details = $response->viewData('instructorCourseDetails');
+        $this->assertArrayHasKey($instructor->id, $details);
+        $this->assertCount(1, $details[$instructor->id]);
+
+        $course = $details[$instructor->id][0];
+        $this->assertSame($offering->course->course_code, $course['course_code']);
+        $this->assertSame('ภาคเรียนที่ 1', $course['term_label']);
+        $this->assertSame(['ผู้สอนหลัก', 'ผู้ร่วมสอน'], $course['roles']);
+        $this->assertSame(2, $course['schedule_count']);
+        $this->assertSame(3.0, $course['by_category']['lecture']);
+        $this->assertSame(4.0, $course['by_category']['practicum']);
+        $this->assertSame(7.0, $course['total_hours']);
+        $this->assertSame(
+            $response->viewData('instructorHours')[$instructor->id]['total'],
+            $course['total_hours']
+        );
+    }
+
     public function test_workload_report_exports_csv_with_bom(): void
     {
         [$head, $offering, $instructor, $group, $lecture, $room] = $this->makeReadyOffering();
@@ -419,11 +511,21 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
 
     public function test_staff_and_executive_can_view_workload_report_but_cannot_use_admin_export(): void
     {
+        [$head, $offering, $instructor, $group, $lecture, $room] = $this->makeReadyOffering();
+        $this->makeSchedule($offering, $lecture, $room, [$instructor], [$group], [
+            'status' => 'approved',
+            'start_date' => '2026-08-03',
+            'end_date' => '2026-08-03',
+            'start_time' => '09:00',
+            'end_time' => '12:00',
+        ]);
+
         $staff = $this->makeUser('staff');
         $this->actingAs($staff)->withSession(['active_role' => 'staff']);
         $this->get(route('staff.reports.workload'))
             ->assertOk()
             ->assertSee('data-testid="sidebar-staff-workload-report"', false)
+            ->assertSee('data-testid="workload-course-details-toggle"', false)
             ->assertDontSee('data-testid="workload-export-csv"', false)
             ->assertDontSee('และนำออกเป็นไฟล์ Excel ได้');
         $this->get(route('admin.reports.workload.export'))->assertForbidden();
@@ -433,6 +535,7 @@ class M6WorkloadDashboardTest extends ScheduleTestCase
         $this->get(route('approver.reports.workload'))
             ->assertOk()
             ->assertSee('data-testid="sidebar-executive-workload-report"', false)
+            ->assertSee('data-testid="workload-course-details-toggle"', false)
             ->assertDontSee('data-testid="workload-export-csv"', false)
             ->assertDontSee('และนำออกเป็นไฟล์ Excel ได้');
         $this->get(route('admin.reports.workload.export'))->assertForbidden();
