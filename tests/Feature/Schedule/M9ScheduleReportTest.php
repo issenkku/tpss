@@ -71,6 +71,7 @@ class M9ScheduleReportTest extends ScheduleTestCase
             ->assertSee($instructor->formatted_name)
             ->assertSee($room->room_code)
             ->assertDontSee('การพยาบาลเด็ก')
+            ->assertSee('data-testid="schedule-report-clear-filters"', false)
             ->assertSee('นำออก PDF')
             ->assertSee('นำออก Excel');
     }
@@ -160,7 +161,9 @@ class M9ScheduleReportTest extends ScheduleTestCase
     {
         $staff = $this->makeUser('staff');
         $this->actingAs($staff)->withSession(['active_role' => 'staff']);
-        $this->get(route('staff.reports.schedules'))->assertOk();
+        $this->get(route('staff.reports.schedules'))
+            ->assertOk()
+            ->assertDontSee('data-testid="schedule-report-clear-filters"', false);
 
         $executive = $this->makeUser('executive');
         $this->actingAs($executive)->withSession(['active_role' => 'executive']);

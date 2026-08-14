@@ -2,6 +2,15 @@
     <x-async-filter scope="schedule-report" class="schedule-report-page">
         @php
             $resultCount = method_exists($schedules, 'total') ? $schedules->total() : $schedules->count();
+            $hasActiveFilters = collect([
+                'academic_year_id',
+                'term_sequence',
+                'curriculum_id',
+                'course_offering_id',
+                'student_group_id',
+                'instructor_id',
+                'room_id',
+            ])->contains(fn (string $name) => request()->filled($name));
         @endphp
 
         @include('shared.dashboard.role_header', [
@@ -97,6 +106,17 @@
             </form>
 
             <div class="schedule-report-actions" aria-label="ส่งออกรายงาน">
+                @if($hasActiveFilters)
+                    <a href="{{ route($reportRouteName) }}"
+                       class="schedule-report-button schedule-report-button--clear"
+                       data-async-filter-link
+                       data-testid="schedule-report-clear-filters">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M6 6l12 12M18 6L6 18"/>
+                        </svg>
+                        ล้างตัวกรอง
+                    </a>
+                @endif
                 <a href="{{ route($pdfRouteName, $filters) }}"
                    class="schedule-report-button schedule-report-button--secondary"
                    data-testid="schedule-report-export-pdf">
@@ -584,6 +604,13 @@
                 color: var(--brand-navy, #002454);
             }
 
+            .schedule-report-button--clear {
+                margin-right: auto;
+                border-color: #bdc9d6;
+                background: #f3f6f9;
+                color: #40536e;
+            }
+
             .schedule-report-button:hover,
             .schedule-report-button:focus-visible {
                 border-color: #174c82;
@@ -784,6 +811,12 @@
                 .schedule-report-actions {
                     display: grid;
                     grid-template-columns: 1fr 1fr;
+                }
+
+                .schedule-report-button--clear {
+                    grid-column: 1 / -1;
+                    justify-self: start;
+                    margin-right: 0;
                 }
 
                 .schedule-report-pagination {

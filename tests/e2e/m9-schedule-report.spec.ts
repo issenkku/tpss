@@ -21,6 +21,7 @@ test.describe('M9 — Schedule reporting', () => {
     await expect(page.getByRole('heading', { name: 'สถิติการใช้ห้องและภาควิชา', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'การใช้ห้อง', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'สรุปตามภาควิชา', exact: true })).toBeVisible();
+    await expect(page.getByTestId('schedule-report-clear-filters')).toHaveCount(0);
     await expect(page.getByTestId('schedule-report-export-pdf')).toBeVisible();
     await expect(page.getByTestId('schedule-report-export-excel')).toBeVisible();
 
@@ -44,6 +45,13 @@ test.describe('M9 — Schedule reporting', () => {
     await expect(page).toHaveURL(/term_sequence=\d+/);
     await expect(page.getByTestId('schedule-report-export-pdf')).toHaveAttribute('href', /term_sequence=\d+/);
     await expect(page.getByTestId('schedule-report-export-excel')).toHaveAttribute('href', /term_sequence=\d+/);
+    await expect(page.getByTestId('schedule-report-clear-filters')).toBeVisible();
+    expect(await page.evaluate(() => document.body.dataset.asyncFilterShell)).toBe('stable');
+
+    await page.getByTestId('schedule-report-clear-filters').click();
+    await expect(page.locator('#tpss-filter-status')).toHaveText('กรองข้อมูลเรียบร้อยแล้ว');
+    await expect(page).not.toHaveURL(/term_sequence=/);
+    await expect(page.getByTestId('schedule-report-clear-filters')).toHaveCount(0);
     expect(await page.evaluate(() => document.body.dataset.asyncFilterShell)).toBe('stable');
   });
 
