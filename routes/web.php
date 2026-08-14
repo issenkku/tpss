@@ -5,6 +5,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\Admin\AlertController;
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\ScheduleReportController;
 use App\Http\Controllers\CourseHead\CourseOfferingController;
 use App\Http\Controllers\CourseHead\ConflictBadgeStatusController;
 use App\Http\Controllers\CourseHead\ScheduleController;
@@ -54,9 +55,19 @@ Route::middleware(['auth', 'no-back'])->group(function () {
     Route::get('/staff/reports/workload', [\App\Http\Controllers\Admin\WorkloadReportController::class, 'index'])
         ->name('staff.reports.workload')
         ->middleware('\App\Http\Middleware\CheckRole:staff');
+    Route::middleware('\App\Http\Middleware\CheckRole:staff')->group(function () {
+        Route::get('/staff/reports/schedules', [ScheduleReportController::class, 'index'])->name('staff.reports.schedules');
+        Route::get('/staff/reports/schedules/excel', [ScheduleReportController::class, 'excel'])->name('staff.reports.schedules.excel');
+        Route::get('/staff/reports/schedules/pdf', [ScheduleReportController::class, 'pdf'])->name('staff.reports.schedules.pdf');
+    });
     Route::get('/approver/reports/workload', [\App\Http\Controllers\Admin\WorkloadReportController::class, 'index'])
         ->name('approver.reports.workload')
         ->middleware('\App\Http\Middleware\CheckRole:executive');
+    Route::middleware('\App\Http\Middleware\CheckRole:executive')->group(function () {
+        Route::get('/approver/reports/schedules', [ScheduleReportController::class, 'index'])->name('approver.reports.schedules');
+        Route::get('/approver/reports/schedules/excel', [ScheduleReportController::class, 'excel'])->name('approver.reports.schedules.excel');
+        Route::get('/approver/reports/schedules/pdf', [ScheduleReportController::class, 'pdf'])->name('approver.reports.schedules.pdf');
+    });
 
     // V2 delegation: งานจัดตาราง (workspace/alerts/slot CRUD) เปิดให้หัวหน้าวิชา + อาจารย์ที่ถูกมอบหมาย + เจ้าหน้าที่ที่ดูแลวิชา
     // access จริงต่อ offering กรองด้วย CourseOffering::scopeSchedulableBy / canBeScheduledBy
@@ -148,6 +159,9 @@ Route::middleware(['auth', 'no-back'])->group(function () {
         Route::get('/admin/audit-logs', [AuditLogController::class, 'index'])->name('admin.audit_logs.index');
         Route::get('/admin/reports/workload', [\App\Http\Controllers\Admin\WorkloadReportController::class, 'index'])->name('admin.reports.workload');
         Route::get('/admin/reports/workload/export', [\App\Http\Controllers\Admin\WorkloadReportController::class, 'export'])->name('admin.reports.workload.export');
+        Route::get('/admin/reports/schedules', [ScheduleReportController::class, 'index'])->name('admin.reports.schedules');
+        Route::get('/admin/reports/schedules/excel', [ScheduleReportController::class, 'excel'])->name('admin.reports.schedules.excel');
+        Route::get('/admin/reports/schedules/pdf', [ScheduleReportController::class, 'pdf'])->name('admin.reports.schedules.pdf');
         Route::post('/admin/master-data/departments', 'App\Http\Controllers\Admin\MasterDataController@storeDepartment')->name('admin.departments.store');
         Route::put('/admin/master-data/departments/{department}', 'App\Http\Controllers\Admin\MasterDataController@updateDepartment')->name('admin.departments.update');
         Route::delete('/admin/master-data/departments/{department}', 'App\Http\Controllers\Admin\MasterDataController@destroyDepartment')->name('admin.departments.destroy');

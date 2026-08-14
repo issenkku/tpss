@@ -25,6 +25,7 @@
 /test-results
 /storage/*.key
 /storage/pail
+/storage/framework/dompdf-fonts
 /vendor
 _ide_helper.php
 Homestead.json

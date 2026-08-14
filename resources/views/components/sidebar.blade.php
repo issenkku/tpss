@@ -172,6 +172,17 @@
                 <span class="nv-label">ช่วยจัดตาราง</span>
             </a>
             @endif
+            <a href="{{ route('staff.reports.schedules') }}"
+               class="nv {{ Request::routeIs('staff.reports.schedules*') ? 'on' : '' }}"
+               data-testid="sidebar-staff-schedule-report">
+                <svg class="nv-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                <span class="nv-label">รายงานตารางสอน</span>
+            </a>
             <a href="{{ route('staff.reports.workload') }}"
                class="nv {{ Request::routeIs('staff.reports.workload') ? 'on' : '' }}"
                data-testid="sidebar-staff-workload-report">
@@ -182,7 +193,7 @@
                     <line x1="16" y1="17" x2="8" y2="17"></line>
                     <polyline points="10 9 9 9 8 9"></polyline>
                 </svg>
-                <span class="nv-label">รายงาน</span>
+                <span class="nv-label">รายงานภาระงาน</span>
             </a>
 
         @elseif($activeRole === 'course_head')
@@ -328,7 +339,9 @@
                 </svg>
                 <span class="nv-label">รออนุมัติ</span>
             </a>
-            <span class="nv nv-disabled" role="link" aria-disabled="true" title="ฟีเจอร์ตารางทั้งหมดสำหรับผู้บริหารกำลังอยู่ในช่วงพัฒนา">
+            <a href="{{ route('approver.reports.schedules') }}"
+               class="nv {{ Request::routeIs('approver.reports.schedules*') ? 'on' : '' }}"
+               data-testid="sidebar-executive-schedule-report">
                 <svg class="nv-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
                     <line x1="16" y1="2" x2="16" y2="6"></line>
@@ -336,8 +349,7 @@
                     <line x1="3" y1="10" x2="21" y2="10"></line>
                 </svg>
                 <span class="nv-label">ตารางทั้งหมด</span>
-                <span class="nv-dev-badge">กำลังพัฒนา</span>
-            </span>
+            </a>
             <a href="{{ route('approver.offerings.rejected') }}" class="nv {{ $approverRejectedActive ? 'on' : '' }}" data-testid="nav-approver-rejected">
                 <svg class="nv-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -441,16 +453,17 @@
 
             {{-- 3. ตารางและรายงาน (admin = read-only, ไม่มีสิทธิแก้ไขตารางสอน) --}}
             <div class="sb-sec" style="margin-top: 15px;">ตารางและรายงาน</div>
-            <span class="nv nv-disabled" role="link" aria-disabled="true" title="ฟีเจอร์ตารางสอนที่เผยแพร่แล้วกำลังอยู่ในช่วงพัฒนา">
+            <a href="{{ route('admin.reports.schedules') }}"
+               class="nv {{ Request::routeIs('admin.reports.schedules*') ? 'on' : '' }}"
+               data-testid="sidebar-admin-schedule-report">
                 <svg class="nv-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="3" y="4" width="18" height="18" rx="2"></rect>
                     <line x1="16" y1="2" x2="16" y2="6"></line>
                     <line x1="8" y1="2" x2="8" y2="6"></line>
                     <line x1="3" y1="10" x2="21" y2="10"></line>
                 </svg>
-                <span class="nv-label">ตารางสอนที่เผยแพร่</span>
-                <span class="nv-dev-badge">กำลังพัฒนา</span>
-            </span>
+                <span class="nv-label">ตารางสอนที่เผยแพร่แล้ว</span>
+            </a>
             <a href="{{ route('admin.reports.workload') }}"
                class="nv {{ Request::routeIs('admin.reports.workload') ? 'on' : '' }}"
                data-testid="sidebar-workload-report">
