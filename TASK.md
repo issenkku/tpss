@@ -7,7 +7,7 @@
 Phase 2 — `Sprint 3 — M9 Reporting`
 
 ## Current Focus
-ปิด Task 25 (`M9-01, M9-02`) — รายงานตารางสอนที่เผยแพร่แล้วแบบรายอาจารย์และรายห้อง พร้อมตัวกรองแบบไม่รีเฟรชทั้งหน้า และส่งออก PDF/Excel
+ปิด Sprint 3 M9 ในฝั่งโค้ดและหลักฐานทดสอบ; รอ sync สถานะ ClickUp เมื่อ API พ้น rate limit
 
 ## Allowed Directories
 - `app/Http/Controllers/Admin/`
@@ -34,7 +34,8 @@ Phase 2 — `Sprint 3 — M9 Reporting`
 - [x] เพิ่ม PHPUnit และ Playwright ครอบคลุมหน้า ตัวกรอง สิทธิ์ และไฟล์ส่งออก
 - [x] Task 26 (`M9-03, M9-04, M9-05`) — Room Utilization, Department Summary และชุด export สรุป
 - [x] รันทดสอบ M9 รวม (Feature 24/24 + JS 6/6 + E2E 3/3 + build ผ่าน)
-- [ ] บันทึก Test Evidence ของ M9 ใน WP-07 หลัง commit
+- [x] บันทึก WP-07 Feature `TR-202608140444-M9-FEATURE` (4/4)
+- [x] บันทึก WP-07 E2E `TR-202608140445-M9-E2E` (3/3)
 - [ ] อัปเดตสถานะ Sprint 3 ใน ClickUp เมื่อ API พ้น rate limit
 
 ## Definition of Done
@@ -44,7 +45,7 @@ Phase 2 — `Sprint 3 — M9 Reporting`
 - commit แต่ละชุดใช้ข้อความภาษาไทยและไม่รวมไฟล์ cache/generated
 
 ## Blocked / Waiting
-- ClickUp API ติด rate limit ชั่วคราว; รอครบเวลาที่ระบบแจ้งก่อนอัปเดต Test Evidence/สถานะ
+- ClickUp API ติด rate limit ชั่วคราว; รอครบเวลาที่ระบบแจ้งก่อนปิดสถานะ Sprint 3 ใน ClickUp
 
 ## Completed
 - Sprint 2 — M6 Workload from Real Schedules ถูก merge เข้า `dev` แล้วที่ `6b660d1`
