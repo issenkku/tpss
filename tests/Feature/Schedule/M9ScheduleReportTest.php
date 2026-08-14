@@ -98,11 +98,62 @@ class M9ScheduleReportTest extends ScheduleTestCase
         $this->assertStringContainsString('.xlsx', $xlsx->headers->get('content-disposition'));
         $workbookXml = $this->readXlsxResponse($xlsx);
         $this->assertStringContainsString('ทดสอบรายงาน M9', $workbookXml);
+        $this->assertStringContainsString('การใช้ห้อง', $workbookXml);
+        $this->assertStringContainsString('สรุปภาควิชา', $workbookXml);
+        $this->assertStringContainsString('Schedule Department', $workbookXml);
 
         $pdf = $this->get(route('admin.reports.schedules.pdf', $filters))->assertOk();
         $pdf->assertHeader('content-type', 'application/pdf');
         $this->assertStringContainsString('.pdf', $pdf->headers->get('content-disposition'));
         $this->assertStringStartsWith('%PDF-', $pdf->getContent());
+    }
+
+    public function test_report_calculates_room_utilization_and_department_summary_from_filtered_schedules(): void
+    {
+        [$head, $offering, $instructor, $group, $activityType, $room] = $this->makeReadyOffering();
+        $year = $offering->academicYear;
+        $term = $this->makeTerm($year->fallbackCalendar()->id, 1);
+        $offering->update(['approval_status' => 'published']);
+        $room->update(['capacity' => 30]);
+
+        $this->makeSchedule($offering, $activityType, $room, [$instructor], [$group], [
+            'term_id' => $term->id,
+            'status' => 'approved',
+            'start_date' => '2026-08-03',
+            'end_date' => '2026-08-07',
+            'start_time' => '08:00',
+            'end_time' => '10:00',
+            'capacity_required' => 15,
+        ]);
+
+        $admin = $this->makeUser('admin');
+        $response = $this->actingAs($admin)
+            ->withSession(['active_role' => 'admin'])
+            ->get(route('admin.reports.schedules', [
+                'academic_year_id' => $year->id,
+                'term_sequence' => 1,
+            ]))
+            ->assertOk()
+            ->assertSee('สถิติการใช้ห้องและภาควิชา')
+            ->assertSee('Schedule Department');
+
+        $roomSummary = $response->viewData('roomUtilization')->first();
+        $this->assertSame($room->id, $roomSummary['room_id']);
+        $this->assertSame(1, $roomSummary['schedule_count']);
+        $this->assertSame(10.0, $roomSummary['scheduled_hours']);
+        $this->assertSame(50.0, $roomSummary['average_capacity_rate']);
+
+        $department = $response->viewData('departmentSummary')->first();
+        $this->assertSame('Schedule Department', $department['department_name']);
+        $this->assertSame(1, $department['course_count']);
+        $this->assertSame(1, $department['instructor_count']);
+        $this->assertSame(1, $department['student_group_count']);
+        $this->assertSame(10.0, $department['scheduled_hours']);
+
+        $totals = $response->viewData('summaryTotals');
+        $this->assertSame(1, $totals['room_count']);
+        $this->assertSame(10.0, $totals['room_hours']);
+        $this->assertSame(1, $totals['department_count']);
     }
 
     public function test_staff_and_executive_can_use_schedule_reports_but_instructor_cannot(): void
@@ -141,10 +192,13 @@ class M9ScheduleReportTest extends ScheduleTestCase
         $zip = new ZipArchive;
         $this->assertTrue($zip->open($path) === true);
         $sharedStrings = $zip->getFromName('xl/sharedStrings.xml') ?: '';
-        $sheet = $zip->getFromName('xl/worksheets/sheet1.xml') ?: '';
+        $workbook = $zip->getFromName('xl/workbook.xml') ?: '';
+        $sheets = collect(range(1, 3))
+            ->map(fn (int $index) => $zip->getFromName("xl/worksheets/sheet{$index}.xml") ?: '')
+            ->implode('');
         $zip->close();
         @unlink($path);
 
-        return $sharedStrings . $sheet;
+        return $workbook . $sharedStrings . $sheets;
     }
 }

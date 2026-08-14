@@ -118,6 +118,112 @@
             </div>
         </section>
 
+        <section class="schedule-report-overview" aria-labelledby="schedule-report-overview-title">
+            <div class="schedule-report-overview__heading">
+                <div>
+                    <p class="schedule-report-eyebrow">ภาพรวมตามตัวกรอง</p>
+                    <h2 id="schedule-report-overview-title">สถิติการใช้ห้องและภาควิชา</h2>
+                </div>
+                @if($summaryTotals['unassigned_room_count'] > 0)
+                    <p class="schedule-report-warning">
+                        {{ number_format($summaryTotals['unassigned_room_count']) }} รายการยังไม่ระบุห้อง
+                    </p>
+                @endif
+            </div>
+
+            <dl class="schedule-report-metrics">
+                <div>
+                    <dt>รายการตาราง</dt>
+                    <dd>{{ number_format($summaryTotals['schedule_count']) }}</dd>
+                </div>
+                <div>
+                    <dt>ชั่วโมงใช้ห้องรวม</dt>
+                    <dd>{{ number_format($summaryTotals['room_hours'], 1) }} <small>ชม.</small></dd>
+                </div>
+                <div>
+                    <dt>ห้องที่ถูกใช้งาน</dt>
+                    <dd>{{ number_format($summaryTotals['room_count']) }} <small>ห้อง</small></dd>
+                </div>
+                <div>
+                    <dt>ภาควิชาที่มีตาราง</dt>
+                    <dd>{{ number_format($summaryTotals['department_count']) }} <small>ภาควิชา</small></dd>
+                </div>
+            </dl>
+
+            <div class="schedule-report-summary-grid">
+                <section class="schedule-report-summary-panel" aria-labelledby="room-utilization-title">
+                    <div class="schedule-report-summary-panel__heading">
+                        <h3 id="room-utilization-title">การใช้ห้อง</h3>
+                        <p>อัตราความจุเฉลี่ยถ่วงน้ำหนักตามชั่วโมง</p>
+                    </div>
+                    <div class="schedule-report-summary-table-wrap">
+                        <table class="schedule-report-summary-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">ห้อง</th>
+                                    <th scope="col">ครั้ง</th>
+                                    <th scope="col">ชั่วโมง</th>
+                                    <th scope="col">ใช้ความจุเฉลี่ย</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($roomUtilization as $roomSummary)
+                                    <tr>
+                                        <td>
+                                            <strong>{{ $roomSummary['room_name'] }}</strong>
+                                            <span>{{ $roomSummary['room_code'] }}{{ $roomSummary['building'] ? ' · ' . $roomSummary['building'] : '' }}</span>
+                                        </td>
+                                        <td>{{ number_format($roomSummary['schedule_count']) }}</td>
+                                        <td>{{ number_format($roomSummary['scheduled_hours'], 1) }}</td>
+                                        <td>
+                                            {{ $roomSummary['average_capacity_rate'] !== null
+                                                ? number_format($roomSummary['average_capacity_rate'], 1) . '%'
+                                                : 'ไม่ระบุ' }}
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="4" class="schedule-report-summary-empty">ไม่มีข้อมูลห้องตามตัวกรอง</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="schedule-report-summary-panel" aria-labelledby="department-summary-title">
+                    <div class="schedule-report-summary-panel__heading">
+                        <h3 id="department-summary-title">สรุปตามภาควิชา</h3>
+                        <p>นับจากรายวิชาเจ้าของตาราง</p>
+                    </div>
+                    <div class="schedule-report-summary-table-wrap">
+                        <table class="schedule-report-summary-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">ภาควิชา</th>
+                                    <th scope="col">วิชา</th>
+                                    <th scope="col">ผู้สอน</th>
+                                    <th scope="col">ครั้ง</th>
+                                    <th scope="col">ชั่วโมง</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($departmentSummary as $department)
+                                    <tr>
+                                        <td><strong>{{ $department['department_name'] }}</strong></td>
+                                        <td>{{ number_format($department['course_count']) }}</td>
+                                        <td>{{ number_format($department['instructor_count']) }}</td>
+                                        <td>{{ number_format($department['schedule_count']) }}</td>
+                                        <td>{{ number_format($department['scheduled_hours'], 1) }}</td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="5" class="schedule-report-summary-empty">ไม่มีข้อมูลภาควิชาตามตัวกรอง</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </section>
+
         <section class="schedule-report-results" aria-labelledby="schedule-report-table-title">
             <div class="schedule-report-results__heading">
                 <div>
@@ -232,6 +338,7 @@
             }
 
             .schedule-report-toolbar,
+            .schedule-report-overview,
             .schedule-report-results {
                 border: 1px solid var(--border, #d7e0ea);
                 border-radius: 10px;
@@ -240,6 +347,155 @@
 
             .schedule-report-toolbar {
                 padding: 20px;
+            }
+
+            .schedule-report-overview {
+                padding: 20px;
+            }
+
+            .schedule-report-overview__heading,
+            .schedule-report-summary-panel__heading {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 16px;
+            }
+
+            .schedule-report-overview h2 {
+                margin: 2px 0 0;
+                color: var(--fg-1, #10213b);
+                font-family: var(--font-display);
+                font-size: 1.2rem;
+            }
+
+            .schedule-report-warning {
+                margin: 0;
+                padding: 5px 9px;
+                border: 1px solid #e7bd68;
+                border-radius: 999px;
+                background: #fff8e8;
+                color: #78520a;
+                font-size: .75rem;
+                font-weight: 700;
+            }
+
+            .schedule-report-metrics {
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                margin: 18px 0 0;
+                border-block: 1px solid var(--border, #d7e0ea);
+            }
+
+            .schedule-report-metrics > div {
+                padding: 14px 16px;
+            }
+
+            .schedule-report-metrics > div + div {
+                border-left: 1px solid var(--border, #d7e0ea);
+            }
+
+            .schedule-report-metrics dt {
+                color: var(--fg-3, #60718a);
+                font-size: .75rem;
+                font-weight: 700;
+            }
+
+            .schedule-report-metrics dd {
+                margin: 3px 0 0;
+                color: var(--brand-navy, #002454);
+                font-size: 1.4rem;
+                font-weight: 800;
+                font-variant-numeric: tabular-nums;
+            }
+
+            .schedule-report-metrics dd small {
+                color: var(--fg-2, #40536e);
+                font-size: .74rem;
+                font-weight: 600;
+            }
+
+            .schedule-report-summary-grid {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+                gap: 16px;
+                margin-top: 18px;
+            }
+
+            .schedule-report-summary-panel {
+                overflow: hidden;
+                border: 1px solid var(--border, #d7e0ea);
+                border-radius: 8px;
+            }
+
+            .schedule-report-summary-panel__heading {
+                padding: 13px 14px;
+                background: #f3f7fa;
+            }
+
+            .schedule-report-summary-panel h3,
+            .schedule-report-summary-panel p {
+                margin: 0;
+            }
+
+            .schedule-report-summary-panel h3 {
+                color: var(--fg-1, #10213b);
+                font-size: .92rem;
+            }
+
+            .schedule-report-summary-panel p {
+                color: var(--fg-3, #60718a);
+                font-size: .7rem;
+                text-align: right;
+            }
+
+            .schedule-report-summary-table-wrap {
+                max-height: 330px;
+                overflow: auto;
+            }
+
+            .schedule-report-summary-table {
+                width: 100%;
+                border-collapse: collapse;
+                color: var(--fg-1, #10213b);
+                font-size: .76rem;
+            }
+
+            .schedule-report-summary-table th,
+            .schedule-report-summary-table td {
+                padding: 9px 10px;
+                border-top: 1px solid #e0e7ef;
+                text-align: right;
+                font-variant-numeric: tabular-nums;
+            }
+
+            .schedule-report-summary-table th {
+                position: sticky;
+                top: 0;
+                background: #e9f1f6;
+                color: #294763;
+                font-size: .7rem;
+                z-index: 1;
+            }
+
+            .schedule-report-summary-table th:first-child,
+            .schedule-report-summary-table td:first-child {
+                text-align: left;
+            }
+
+            .schedule-report-summary-table td strong,
+            .schedule-report-summary-table td span {
+                display: block;
+            }
+
+            .schedule-report-summary-table td span {
+                color: var(--fg-3, #60718a);
+                font-size: .68rem;
+            }
+
+            .schedule-report-summary-empty {
+                padding: 24px !important;
+                color: var(--fg-3, #60718a);
+                text-align: center !important;
             }
 
             .schedule-report-toolbar__heading,
@@ -503,6 +759,26 @@
 
                 .schedule-report-filters {
                     grid-template-columns: 1fr;
+                }
+
+                .schedule-report-overview__heading,
+                .schedule-report-summary-panel__heading {
+                    align-items: stretch;
+                    flex-direction: column;
+                }
+
+                .schedule-report-summary-panel p {
+                    text-align: left;
+                }
+
+                .schedule-report-metrics,
+                .schedule-report-summary-grid {
+                    grid-template-columns: 1fr;
+                }
+
+                .schedule-report-metrics > div + div {
+                    border-top: 1px solid var(--border, #d7e0ea);
+                    border-left: 0;
                 }
 
                 .schedule-report-actions {

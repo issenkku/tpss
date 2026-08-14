@@ -185,7 +185,150 @@ class ScheduleReportExporter
             ->setFitToHeight(0);
         $sheet->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(1, 4);
 
+        $this->addRoomUtilizationSheet($spreadsheet, $data);
+        $this->addDepartmentSummarySheet($spreadsheet, $data);
+        $spreadsheet->setActiveSheetIndex(0);
+
         return $spreadsheet;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function addRoomUtilizationSheet(Spreadsheet $spreadsheet, array $data): void
+    {
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle('การใช้ห้อง');
+        $sheet->mergeCells('A1:G1');
+        $sheet->setCellValue('A1', 'สรุปการใช้ห้อง');
+        $sheet->mergeCells('A2:G2');
+        $sheet->setCellValue('A2', $this->periodLabel($data));
+        $sheet->fromArray([
+            'รหัสห้อง',
+            'ชื่อห้อง / สถานที่',
+            'อาคาร',
+            'ความจุ',
+            'จำนวนครั้ง',
+            'ชั่วโมงใช้ห้อง',
+            'อัตราใช้ความจุเฉลี่ย (%)',
+        ], null, 'A4');
+
+        $row = 5;
+        foreach ($data['roomUtilization'] as $summary) {
+            $sheet->fromArray([
+                $summary['room_code'],
+                $summary['room_name'],
+                $summary['building'] ?: '-',
+                $summary['capacity'],
+                $summary['schedule_count'],
+                $summary['scheduled_hours'],
+                $summary['average_capacity_rate'],
+            ], null, "A{$row}");
+            $row++;
+        }
+
+        if ($row === 5) {
+            $sheet->mergeCells('A5:G5');
+            $sheet->setCellValue('A5', 'ไม่มีข้อมูลห้องตามตัวกรองที่เลือก');
+        }
+
+        $this->styleSummarySheet($sheet, 'G', max(5, $row - 1), [
+            'A' => 16,
+            'B' => 28,
+            'C' => 20,
+            'D' => 12,
+            'E' => 13,
+            'F' => 17,
+            'G' => 25,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function addDepartmentSummarySheet(Spreadsheet $spreadsheet, array $data): void
+    {
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle('สรุปภาควิชา');
+        $sheet->mergeCells('A1:F1');
+        $sheet->setCellValue('A1', 'สรุปตารางสอนตามภาควิชา');
+        $sheet->mergeCells('A2:F2');
+        $sheet->setCellValue('A2', $this->periodLabel($data));
+        $sheet->fromArray([
+            'ภาควิชา',
+            'จำนวนวิชา',
+            'จำนวนผู้สอน',
+            'จำนวนกลุ่มนักศึกษา',
+            'จำนวนครั้ง',
+            'ชั่วโมงตารางรวม',
+        ], null, 'A4');
+
+        $row = 5;
+        foreach ($data['departmentSummary'] as $summary) {
+            $sheet->fromArray([
+                $summary['department_name'],
+                $summary['course_count'],
+                $summary['instructor_count'],
+                $summary['student_group_count'],
+                $summary['schedule_count'],
+                $summary['scheduled_hours'],
+            ], null, "A{$row}");
+            $row++;
+        }
+
+        if ($row === 5) {
+            $sheet->mergeCells('A5:F5');
+            $sheet->setCellValue('A5', 'ไม่มีข้อมูลภาควิชาตามตัวกรองที่เลือก');
+        }
+
+        $this->styleSummarySheet($sheet, 'F', max(5, $row - 1), [
+            'A' => 42,
+            'B' => 15,
+            'C' => 16,
+            'D' => 23,
+            'E' => 15,
+            'F' => 19,
+        ]);
+    }
+
+    /**
+     * @param  array<string, int>  $columnWidths
+     */
+    private function styleSummarySheet($sheet, string $lastColumn, int $lastRow, array $columnWidths): void
+    {
+        $sheet->setShowGridlines(false);
+        $sheet->freezePane('A5');
+        $sheet->getStyle("A1:{$lastColumn}1")->applyFromArray([
+            'font' => ['bold' => true, 'size' => 18, 'color' => ['rgb' => 'F8FAFC']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '002454']],
+        ]);
+        $sheet->getStyle("A2:{$lastColumn}2")->applyFromArray([
+            'font' => ['size' => 10, 'color' => ['rgb' => '34506F']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAF2F8']],
+        ]);
+        $sheet->getStyle("A4:{$lastColumn}4")->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'F8FAFC']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '0F477E']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+                'wrapText' => true,
+            ],
+        ]);
+        $sheet->getStyle("A5:{$lastColumn}{$lastRow}")->getAlignment()
+            ->setVertical(Alignment::VERTICAL_TOP)
+            ->setWrapText(true);
+
+        foreach ($columnWidths as $column => $width) {
+            $sheet->getColumnDimension($column)->setWidth($width);
+        }
+
+        $sheet->getPageSetup()
+            ->setOrientation(PageSetup::ORIENTATION_LANDSCAPE)
+            ->setPaperSize(PageSetup::PAPERSIZE_A4)
+            ->setFitToWidth(1)
+            ->setFitToHeight(0);
+        $sheet->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(1, 4);
     }
 
     /**

@@ -17,6 +17,7 @@ Phase 2 — `Sprint 3 — M9 Reporting`
 - `routes/`
 - `tests/Feature/Schedule/`
 - `tests/e2e/`
+- `.claude/rules/`
 - `composer.json`, `composer.lock`, `TASK.md`, `.gitignore`
 
 ## Scope Boundary
@@ -31,8 +32,9 @@ Phase 2 — `Sprint 3 — M9 Reporting`
 - [x] เพิ่มตัวกรองปี ภาคเรียน หลักสูตร รายวิชา กลุ่ม อาจารย์ และห้องแบบไม่รีเฟรชทั้งหน้า
 - [x] ส่งออก PDF ภาษาไทยและ Excel ตามตัวกรอง
 - [x] เพิ่ม PHPUnit และ Playwright ครอบคลุมหน้า ตัวกรอง สิทธิ์ และไฟล์ส่งออก
-- [ ] Task 26 (`M9-03, M9-04, M9-05`) — Room Utilization, Department Summary และชุด export สรุป
-- [ ] รันทดสอบ M9 รวมและบันทึก Test Evidence ใน WP-07
+- [x] Task 26 (`M9-03, M9-04, M9-05`) — Room Utilization, Department Summary และชุด export สรุป
+- [x] รันทดสอบ M9 รวม (Feature 24/24 + JS 6/6 + E2E 3/3 + build ผ่าน)
+- [ ] บันทึก Test Evidence ของ M9 ใน WP-07 หลัง commit
 - [ ] อัปเดตสถานะ Sprint 3 ใน ClickUp เมื่อ API พ้น rate limit
 
 ## Definition of Done

@@ -18,6 +18,9 @@ test.describe('M9 — Schedule reporting', () => {
     await expect(page.getByRole('combobox', { name: 'กลุ่มนักศึกษา', exact: true })).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'อาจารย์ผู้สอน', exact: true })).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'ห้อง / สถานที่', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'สถิติการใช้ห้องและภาควิชา', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'การใช้ห้อง', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'สรุปตามภาควิชา', exact: true })).toBeVisible();
     await expect(page.getByTestId('schedule-report-export-pdf')).toBeVisible();
     await expect(page.getByTestId('schedule-report-export-excel')).toBeVisible();
 

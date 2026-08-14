@@ -9,6 +9,7 @@ use App\Models\Room;
 use App\Models\Schedule;
 use App\Models\StudentGroup;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -88,10 +89,22 @@ class ScheduleReportService
             $roomId
         );
 
+        $summarySchedules = (clone $query)->get();
+
         /** @var LengthAwarePaginator|Collection $schedules */
         $schedules = $paginate
             ? $query->paginate(50)->withQueryString()
-            : $query->get();
+            : $summarySchedules;
+
+        $roomUtilization = $this->roomUtilization($summarySchedules);
+        $departmentSummary = $this->departmentSummary($summarySchedules);
+        $summaryTotals = [
+            'schedule_count' => $summarySchedules->count(),
+            'room_count' => $roomUtilization->count(),
+            'room_hours' => round((float) $roomUtilization->sum('scheduled_hours'), 1),
+            'department_count' => $departmentSummary->count(),
+            'unassigned_room_count' => $summarySchedules->whereNull('room_id')->count(),
+        ];
 
         $filters = array_filter([
             'academic_year_id' => $year?->id,
@@ -122,10 +135,108 @@ class ScheduleReportService
             'instructorId',
             'rooms',
             'roomId',
+            'roomUtilization',
+            'departmentSummary',
+            'summaryTotals',
             'schedules',
             'filters',
             'selectedTerm'
         );
+    }
+
+    /**
+     * @return Collection<int, array<string, int|float|string|null>>
+     */
+    private function roomUtilization(Collection $schedules): Collection
+    {
+        return $schedules
+            ->filter(fn (Schedule $schedule) => $schedule->room !== null)
+            ->groupBy('room_id')
+            ->map(function (Collection $roomSchedules): array {
+                /** @var Schedule $first */
+                $first = $roomSchedules->first();
+                $room = $first->room;
+                $scheduledHours = 0.0;
+                $weightedOccupancy = 0.0;
+                $occupancyHours = 0.0;
+
+                foreach ($roomSchedules as $schedule) {
+                    $hours = $this->scheduledHours($schedule);
+                    $scheduledHours += $hours;
+                    $studentCount = $schedule->capacity_required
+                        ?: (int) $schedule->studentGroups->sum('student_count');
+
+                    if ($room?->capacity && $room->capacity > 0 && $studentCount > 0 && $hours > 0) {
+                        $weightedOccupancy += ($studentCount / $room->capacity) * $hours;
+                        $occupancyHours += $hours;
+                    }
+                }
+
+                return [
+                    'room_id' => (int) $room->id,
+                    'room_code' => (string) ($room->room_code ?: '-'),
+                    'room_name' => (string) ($room->room_name ?: $room->room_code ?: '-'),
+                    'building' => $room->building,
+                    'capacity' => $room->capacity ? (int) $room->capacity : null,
+                    'schedule_count' => $roomSchedules->count(),
+                    'scheduled_hours' => round($scheduledHours, 1),
+                    'average_capacity_rate' => $occupancyHours > 0
+                        ? round(($weightedOccupancy / $occupancyHours) * 100, 1)
+                        : null,
+                ];
+            })
+            ->sortByDesc('scheduled_hours')
+            ->values();
+    }
+
+    /**
+     * @return Collection<int, array<string, int|float|string|null>>
+     */
+    private function departmentSummary(Collection $schedules): Collection
+    {
+        return $schedules
+            ->groupBy(fn (Schedule $schedule) => $schedule->courseOffering?->course?->department_id ?: 0)
+            ->map(function (Collection $departmentSchedules): array {
+                /** @var Schedule $first */
+                $first = $departmentSchedules->first();
+                $department = $first->courseOffering?->course?->department;
+
+                return [
+                    'department_id' => $department?->id ? (int) $department->id : null,
+                    'department_name' => (string) ($department?->name ?: 'ไม่ระบุภาควิชา'),
+                    'course_count' => $departmentSchedules
+                        ->pluck('courseOffering.course_id')->filter()->unique()->count(),
+                    'instructor_count' => $departmentSchedules
+                        ->flatMap(fn (Schedule $schedule) => $schedule->instructors->pluck('id'))
+                        ->unique()->count(),
+                    'student_group_count' => $departmentSchedules
+                        ->flatMap(fn (Schedule $schedule) => $schedule->studentGroups->pluck('id'))
+                        ->unique()->count(),
+                    'schedule_count' => $departmentSchedules->count(),
+                    'scheduled_hours' => round((float) $departmentSchedules
+                        ->sum(fn (Schedule $schedule) => $this->scheduledHours($schedule)), 1),
+                ];
+            })
+            ->sortByDesc('scheduled_hours')
+            ->values();
+    }
+
+    private function scheduledHours(Schedule $schedule): float
+    {
+        if (! $schedule->start_date || ! $schedule->start_time || ! $schedule->end_time) {
+            return 0.0;
+        }
+
+        $startTime = CarbonImmutable::parse((string) $schedule->start_time);
+        $endTime = CarbonImmutable::parse((string) $schedule->end_time);
+        $hoursPerDay = max(0, $startTime->diffInMinutes($endTime, false) / 60);
+        $startDate = CarbonImmutable::parse($schedule->start_date)->startOfDay();
+        $endDate = $schedule->end_date
+            ? CarbonImmutable::parse($schedule->end_date)->startOfDay()
+            : $startDate;
+        $days = $endDate->lt($startDate) ? 1 : ((int) $startDate->diffInDays($endDate) + 1);
+
+        return $hoursPerDay * $days;
     }
 
     private function curriculumOptions(?int $yearId): Collection
@@ -224,6 +335,7 @@ class ScheduleReportService
         return Schedule::query()
             ->with([
                 'courseOffering.course.curriculum',
+                'courseOffering.course.department',
                 'term',
                 'activityType',
                 'room',
