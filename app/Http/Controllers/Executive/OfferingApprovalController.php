@@ -74,6 +74,10 @@ class OfferingApprovalController extends Controller
 
             $courseOffering->approval_status = 'published';
 
+            // M11↔M6: เผยแพร่รายวิชา → finalize ทุก slot เป็น approved
+            // เพื่อให้คิดภาระงาน (M6 นับ schedules.status='approved') + อาจารย์เห็นตาราง/ภาระงานตัวเอง
+            $courseOffering->schedules()->update(['status' => 'approved']);
+
             CourseOfferingApproval::create([
                 'course_offering_id' => $courseOffering->id,
                 'actor_user_id'      => Auth::id(),

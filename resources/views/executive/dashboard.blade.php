@@ -17,6 +17,16 @@
 
         @include('shared.dashboard.offering_pipeline')
 
+        {{-- M6 — ภาระงานสอนทั้งคณะ (read-only): การ์ดสรุป + ตารางเรียง/ไฮไลต์เกินเกณฑ์ --}}
+        <div style="margin-bottom:16px;">
+            @if(($summary['total_hours'] ?? 0) > 0)
+                @include('admin.reports._summary')
+            @endif
+            @include('shared.dashboard.instructors_workload', [
+                'workloadReportUrl' => route('approver.reports.workload'),
+            ])
+        </div>
+
         @if(session('success'))
             <div class="card" style="border-color:var(--status-success-border);background:var(--status-success-bg);margin-bottom:16px;">
                 <div style="padding:12px 18px;color:var(--status-success-fg);font-weight:600;" data-testid="approver-flash-success">{{ session('success') }}</div>

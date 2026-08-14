@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Models\UserRole;
 use App\Services\AuditLogger;
 use App\Services\ScheduleConflictReadRepository;
+use App\Services\WorkloadCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -123,7 +124,9 @@ class DashboardController extends Controller
             ? app(ScheduleConflictReadRepository::class)->getGlobalSummary((int) $currentAcademicYear->id)
             : ['status' => config('conflicts.async_reads') ? 'missing' : 'disabled', 'generation' => null, 'total' => null, 'by_type' => []];
 
-        return view('admin.dashboard', compact('instructors', 'teachingWeeks', 'hoursPerWeek', 'alerts', 'criticals', 'currentAcademicYear', 'stats', 'pipeline', 'conflictSummary'));
+        $instructorHours = $this->instructorWorkloadHours($currentAcademicYear);
+
+        return view('admin.dashboard', compact('instructors', 'teachingWeeks', 'hoursPerWeek', 'alerts', 'criticals', 'currentAcademicYear', 'stats', 'pipeline', 'conflictSummary', 'instructorHours'));
     }
 
     public function staff()
@@ -131,12 +134,15 @@ class DashboardController extends Controller
         ['instructors' => $instructors, 'teachingWeeks' => $teachingWeeks, 'hoursPerWeek' => $hoursPerWeek]
             = $this->instructorWorkloadData();
 
+        $currentAcademicYear = AcademicYear::where('is_active', true)->orderByDesc('name')->first();
+        $instructorHours = $this->instructorWorkloadHours($currentAcademicYear);
+
         $recentAuditLogs = AuditLog::with('user')
             ->orderedForAudit()
             ->limit(5)
             ->get();
 
-        return view('staff.dashboard', compact('instructors', 'teachingWeeks', 'hoursPerWeek', 'recentAuditLogs'));
+        return view('staff.dashboard', compact('instructors', 'teachingWeeks', 'hoursPerWeek', 'recentAuditLogs', 'instructorHours'));
     }
 
     private function instructorWorkloadData(): array
@@ -147,6 +153,16 @@ class DashboardController extends Controller
             'teachingWeeks' => SystemSetting::get('teaching_load_weeks', 39),
             'hoursPerWeek'  => SystemSetting::get('teaching_quota_hours_per_week', 35),
         ];
+    }
+
+    /**
+     * ผลรวมชั่วโมงสอนจริงรายอาจารย์ในปีการศึกษา (M6) — approved + counts_toward_workload
+     * คืน [user_id => ['accrued' => float, 'total' => float]] ใช้สูตรกลางจาก WorkloadCalculator
+     * accrued = สะสมถึงวันนี้ (นับรายวันใน block) · total = ทั้งปีที่อนุมัติแล้ว
+     */
+    private function instructorWorkloadHours(?AcademicYear $year): array
+    {
+        return $year ? (new WorkloadCalculator)->facultyTotalsForYear($year->id) : [];
     }
 
     public function maker()
@@ -184,7 +200,18 @@ class DashboardController extends Controller
             'rejected'  => $pipelineCounts['rejected']  ?? 0,
         ];
 
-        return view('executive.dashboard', compact('currentAcademicYear', 'conflictSummary', 'pendingOfferings', 'pipeline'));
+        // M6 — ผู้บริหารเห็นภาระงานสอนทั้งคณะ: การ์ดสรุป + ตาราง (เรียง/ไฮไลต์เกินเกณฑ์)
+        ['instructors' => $instructors, 'teachingWeeks' => $teachingWeeks, 'hoursPerWeek' => $hoursPerWeek]
+            = $this->instructorWorkloadData();
+        $instructorHours = $this->instructorWorkloadHours($currentAcademicYear);
+
+        $calculator = new WorkloadCalculator;
+        $summary = $calculator->facultySummary($instructors, $instructorHours, $teachingWeeks, $hoursPerWeek);
+        $byLevel = $currentAcademicYear
+            ? $calculator->facultyHoursByEducationLevel($currentAcademicYear->id)
+            : ['bachelor' => 0, 'master' => 0, 'doctorate' => 0];
+
+        return view('executive.dashboard', compact('currentAcademicYear', 'conflictSummary', 'pendingOfferings', 'pipeline', 'instructors', 'teachingWeeks', 'hoursPerWeek', 'instructorHours', 'summary', 'byLevel'));
     }
 
     public function lecturer()

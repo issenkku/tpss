@@ -8,6 +8,7 @@
 @endphp
 
 <x-app-layout title="จัดการรายวิชา">
+    <x-async-filter scope="course-offerings">
     <div class="co-hero">
         <div class="co-hero-kicker">หัวหน้าวิชา / จัดการรายวิชา</div>
         <h1 class="co-hero-title">รายวิชาที่รับผิดชอบ</h1>
@@ -16,46 +17,36 @@
 
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap;">
         @if($availableYears->count() > 0)
-            <form method="GET" action="{{ route('maker.course_offerings.index') }}" class="course-offering-year-filter" style="
-                display:inline-flex;
-                align-items:stretch;
-                border:2px solid var(--brand-navy);
-                border-radius:10px;
-                overflow:hidden;
-                background:var(--surface);
-            ">
-                <label for="year-filter" style="
-                    display:inline-flex;
-                    align-items:center;
-                    gap:6px;
-                    padding:8px 14px;
-                    background:var(--brand-navy);
-                    color:#fff;
-                    font-size:0.8125rem;
-                    font-weight:600;
-                    white-space:nowrap;
-                    margin:0;
-                ">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="4" width="18" height="18" rx="2"/>
-                        <line x1="16" y1="2" x2="16" y2="6"/>
-                        <line x1="8" y1="2" x2="8" y2="6"/>
-                        <line x1="3" y1="10" x2="21" y2="10"/>
-                    </svg>
-                    ปีการศึกษา
-                </label>
-                <div class="course-offering-year-select">
-                    <select id="year-filter" name="year" class="tpss-custom-select" data-menu-anchor=".course-offering-year-filter" onchange="this.form.submit()" data-testid="offering-year-filter">
+            <form method="GET"
+                  action="{{ route('maker.course_offerings.index') }}"
+                  class="course-offering-year-filter">
+                <x-filter-select
+                    id="year-filter"
+                    name="year"
+                    field-class="course-offering-year-field"
+                    label-class="course-offering-year-label"
+                    select-wrapper-class="course-offering-year-select"
+                    class="tpss-custom-select"
+                    data-menu-anchor=".course-offering-year-filter"
+                    data-testid="offering-year-filter">
+                    <x-slot:labelContent>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="3" y="4" width="18" height="18" rx="2"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/>
+                            <line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                        </svg>
+                        ปีการศึกษา
+                    </x-slot:labelContent>
                         @foreach($availableYears as $year)
                             <option value="{{ $year->id }}" @selected($year->id === $selectedYearId)>
-                                ปีการศึกษา {{ $year->name }}@if($year->is_active) · ปัจจุบัน @endif
+                                {{ $year->name }}@if($year->is_active) · ปัจจุบัน @endif
                             </option>
                         @endforeach
-                    </select>
-                </div>
+                </x-filter-select>
             </form>
         @endif
-    </div>
+    </x-async-filter>
 
     @if($summary['total'] > 0)
         @php
@@ -387,36 +378,70 @@
             border-color: color-mix(in oklch, var(--brand-navy) 36%, var(--border));
         }
 
+        .course-offering-year-filter {
+            width: clamp(240px, 26vw, 320px);
+            margin: 0;
+        }
+
         .course-offering-year-select {
-            width: clamp(210px, 24vw, 300px);
+            width: 100%;
             min-width: 0;
         }
 
+        .course-offering-year-field {
+            display: grid;
+            gap: 6px;
+        }
+
+        .course-offering-year-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            width: fit-content;
+            margin: 0;
+            color: var(--fg-2);
+            font-size: 0.75rem;
+            font-weight: 700;
+            line-height: 1.4;
+        }
+
+        .course-offering-year-label svg {
+            width: 15px;
+            height: 15px;
+            color: color-mix(in oklch, var(--brand-navy) 72%, var(--fg-2));
+        }
+
         .course-offering-year-filter .tpss-select {
-            height: 40px;
+            height: 44px;
         }
 
         .course-offering-year-filter .tpss-select-trigger {
-            min-height: 40px;
-            height: 40px;
-            border: 0;
-            border-radius: 0;
-            background: var(--surface);
-            box-shadow: none;
-            padding: 8px 12px 8px 16px;
-            font-size: 0.875rem;
-            font-weight: 700;
-            color: var(--brand-navy);
+            min-height: 44px;
+            height: 44px;
+            border: 1px solid color-mix(in oklch, var(--brand-navy) 24%, var(--border));
+            border-radius: var(--r-md);
+            background-color: var(--surface);
+            box-shadow: 0 1px 2px rgba(0, 36, 84, 0.05);
+            padding: 9px 12px 9px 14px;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--fg-1);
         }
 
-        .course-offering-year-filter .tpss-select-trigger:hover,
-        .course-offering-year-filter .tpss-select-trigger:focus {
+        .course-offering-year-filter .tpss-select-trigger:hover {
             background: color-mix(in oklch, var(--brand-navy) 5%, var(--surface));
-            box-shadow: none;
+            border-color: color-mix(in oklch, var(--brand-navy) 48%, var(--border));
+            box-shadow: 0 3px 8px rgba(0, 36, 84, 0.08);
+        }
+
+        .course-offering-year-filter .tpss-select-trigger:focus {
+            background-color: var(--surface);
+            border-color: var(--brand-navy);
+            box-shadow: 0 0 0 3px color-mix(in oklch, var(--brand-navy) 14%, transparent);
         }
 
         .course-offering-year-filter .tpss-select-menu {
-            min-width: 260px;
+            min-width: 240px;
         }
 
         @media (max-width: 640px) {
@@ -424,14 +449,10 @@
                 width: 100%;
             }
 
-            .course-offering-year-filter label {
-                flex: 0 0 auto;
-            }
-
             .course-offering-year-select {
-                flex: 1 1 auto;
-                width: auto;
+                width: 100%;
             }
         }
     </style>
+    </div>
 </x-app-layout>

@@ -3880,3 +3880,86 @@ html:not(.tpss-page-ready) :where(
         min-width: 0;
     }
 }
+/* Server-backed filters update only their page scope, keeping the app shell stable. */
+.tpss-sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+[data-async-filter-scope] {
+    transition: opacity 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.filter-select-field {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.filter-select-label {
+    color: var(--fg-2);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.55;
+}
+
+.filter-select-control {
+    width: 100%;
+    min-height: 44px;
+    padding: 9px 36px 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background-color: var(--surface);
+    color: var(--fg-1);
+    font: inherit;
+}
+
+.filter-select-control:hover {
+    border-color: color-mix(in oklch, var(--brand-navy) 42%, var(--border));
+}
+
+.filter-select-control:focus-visible {
+    outline: 2px solid var(--brand-navy);
+    outline-offset: 2px;
+}
+
+.filter-select-control:disabled {
+    cursor: not-allowed;
+    opacity: .58;
+    background-color: var(--bg-2);
+}
+
+[data-async-filter-scope].is-filter-loading {
+    opacity: 0.62;
+    cursor: progress;
+    pointer-events: none;
+}
+
+html.is-async-filtering::before {
+    content: '';
+    position: fixed;
+    z-index: 100000;
+    top: 0;
+    left: 0;
+    width: 42%;
+    height: 3px;
+    background: var(--brand-navy);
+    animation: tpss-filter-progress 900ms cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+@keyframes tpss-filter-progress {
+    from { transform: translateX(-110%); }
+    to { transform: translateX(340%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-async-filter-scope] { transition: none; }
+    html.is-async-filtering::before { animation: none; width: 100%; }
+}

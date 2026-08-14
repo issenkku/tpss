@@ -11,6 +11,7 @@ use App\Models\InstructorProfile;
 use App\Models\PaRound;
 use App\Models\Schedule;
 use App\Models\SystemSetting;
+use App\Services\WorkloadCalculator;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -62,10 +63,9 @@ class PaController extends Controller
             ? $this->approvedTeachingSchedules($user->id, $academicYear->id)
             : collect();
         $approvedTeachingHours = round($approvedTeachingSchedules->sum('workload_hours'), 1);
-        $today = CarbonImmutable::today();
-        $taughtTeachingHours = round($approvedTeachingSchedules
-            ->filter(fn (Schedule $schedule) => $schedule->teaching_date?->lessThanOrEqualTo($today))
-            ->sum('workload_hours'), 1);
+        // สะสมถึงวันนี้ = ผลรวม accrued_hours (นับรายวันถึงวันนี้ — แตก block ถูกต้อง)
+        // เดิมกรองด้วย teaching_date ซึ่ง = null สำหรับแถวที่สร้างหลัง migration block-date → สะสมเป็น 0 เสมอ
+        $taughtTeachingHours = round($approvedTeachingSchedules->sum('accrued_hours'), 1);
         $upcomingTeachingHours = round(max(0, $approvedTeachingHours - $taughtTeachingHours), 1);
         $remainingTeachingHours = $teachingQuota !== null
             ? round($teachingQuota - $approvedTeachingHours, 1)
@@ -98,6 +98,9 @@ class PaController extends Controller
 
     private function approvedTeachingSchedules(int $userId, int $academicYearId): Collection
     {
+        $calculator = new WorkloadCalculator;
+        $today = CarbonImmutable::today();
+
         return Schedule::query()
             ->with([
                 'activityType',
@@ -111,11 +114,12 @@ class PaController extends Controller
             ->whereHas('activityType', fn ($query) => $query->where('counts_toward_workload', true))
             ->whereHas('courseOffering', fn ($query) => $query->where('academic_year_id', $academicYearId))
             ->whereHas('instructors', fn ($query) => $query->where('users.id', $userId))
-            ->orderBy('teaching_date')
+            ->orderBy('start_date')
             ->orderBy('start_time')
             ->get()
-            ->map(function (Schedule $schedule) use ($userId) {
-                $schedule->setAttribute('workload_hours', $this->scheduleHours($schedule));
+            ->map(function (Schedule $schedule) use ($userId, $calculator, $today) {
+                $schedule->setAttribute('workload_hours', $calculator->hoursForInstructor($schedule));
+                $schedule->setAttribute('accrued_hours', $calculator->accruedHoursFor($schedule, $today));
                 $assigned = $schedule->instructors->firstWhere('id', $userId);
                 $schedule->setAttribute('workload_role', $assigned?->pivot?->is_lead ? 'ผู้สอนหลัก' : 'ผู้ร่วมสอน');
 
@@ -152,18 +156,6 @@ class PaController extends Controller
             })
             ->sortBy('course_code')
             ->values();
-    }
-
-    private function scheduleHours(Schedule $schedule): float
-    {
-        if (! $schedule->start_time || ! $schedule->end_time) {
-            return 0.0;
-        }
-
-        $start = CarbonImmutable::parse((string) $schedule->start_time);
-        $end = CarbonImmutable::parse((string) $schedule->end_time);
-
-        return max(0, $start->diffInMinutes($end, false) / 60);
     }
 
     public function update(Request $request)

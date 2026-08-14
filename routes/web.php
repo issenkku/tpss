@@ -50,6 +50,14 @@ Route::middleware(['auth', 'no-back'])->group(function () {
     Route::get('/lecturer/dashboard', [DashboardController::class, 'lecturer'])->name('lecturer.dashboard')->middleware('\App\Http\Middleware\CheckRole:instructor');
     Route::put('/lecturer/dashboard/pa', [PaController::class, 'update'])->name('lecturer.pa.update')->middleware('\App\Http\Middleware\CheckRole:instructor');
 
+    // M6 — หน้ารายงานภาระงานชุดเดียวกันสำหรับผู้ดูแลระบบ เจ้าหน้าที่ และผู้บริหาร
+    Route::get('/staff/reports/workload', [\App\Http\Controllers\Admin\WorkloadReportController::class, 'index'])
+        ->name('staff.reports.workload')
+        ->middleware('\App\Http\Middleware\CheckRole:staff');
+    Route::get('/approver/reports/workload', [\App\Http\Controllers\Admin\WorkloadReportController::class, 'index'])
+        ->name('approver.reports.workload')
+        ->middleware('\App\Http\Middleware\CheckRole:executive');
+
     // V2 delegation: งานจัดตาราง (workspace/alerts/slot CRUD) เปิดให้หัวหน้าวิชา + อาจารย์ที่ถูกมอบหมาย + เจ้าหน้าที่ที่ดูแลวิชา
     // access จริงต่อ offering กรองด้วย CourseOffering::scopeSchedulableBy / canBeScheduledBy
     // (coordinator หรือ instructor schedule_permission='schedule' หรือ staff ใน course_staff)
@@ -138,6 +146,8 @@ Route::middleware(['auth', 'no-back'])->group(function () {
         Route::get('/admin/alerts', [AlertController::class, 'index'])->name('admin.alerts');
         Route::post('/admin/alerts/dismissed', [AlertController::class, 'updateDismissed'])->name('admin.alerts.dismissed');
         Route::get('/admin/audit-logs', [AuditLogController::class, 'index'])->name('admin.audit_logs.index');
+        Route::get('/admin/reports/workload', [\App\Http\Controllers\Admin\WorkloadReportController::class, 'index'])->name('admin.reports.workload');
+        Route::get('/admin/reports/workload/export', [\App\Http\Controllers\Admin\WorkloadReportController::class, 'export'])->name('admin.reports.workload.export');
         Route::post('/admin/master-data/departments', 'App\Http\Controllers\Admin\MasterDataController@storeDepartment')->name('admin.departments.store');
         Route::put('/admin/master-data/departments/{department}', 'App\Http\Controllers\Admin\MasterDataController@updateDepartment')->name('admin.departments.update');
         Route::delete('/admin/master-data/departments/{department}', 'App\Http\Controllers\Admin\MasterDataController@destroyDepartment')->name('admin.departments.destroy');
