@@ -85,8 +85,8 @@
 | ClickUp sprint task | งานหลัก | งานย่อย / task ที่อยู่ใน sprint | ช่วงวันที่ | สถานะ |
 |-----|-----|-----|-----|-----|
 | `Sprint 1 — M11 Approval Workflow` | **M11 Approval** | Task17 (M11-01,06) + Task18 (M11-02,03,04,05) + Module Testing & Bug Fix | จ.22–พฤ.25 มิ.ย. | completed |
-| `Sprint 2 — M6 Workload from Real Schedules` | **M6 Workload** | Task23 (M6-01,02) + Task24 (M6-03,04,05) + Module Testing & Bug Fix | ศ.26 มิ.ย. · จ.29 มิ.ย. · อ.30 มิ.ย. · พ.1 ก.ค. · พฤ.2 ก.ค. · ศ.3 ก.ค. | 🔵 active (วางแผน) |
-| `Sprint 3: Reporting module` | **M9 Report PDF/Excel** | Task25 (M9-01,02) + Task26 (M9-03,04,05) + Module Testing & Bug Fix | จ.6–จ.13 ก.ค. | Open |
+| `Sprint 2 — M6 Workload from Real Schedules` | **M6 Workload** | Task23 (M6-01,02) + Task24 (M6-03,04,05) + Module Testing & Bug Fix | ศ.26 มิ.ย. · จ.29 มิ.ย. · อ.30 มิ.ย. · พ.1 ก.ค. · พฤ.2 ก.ค. · ศ.3 ก.ค. | ✅ completed (`6b660d1`) |
+| `Sprint 3: Reporting module` | **M9 Report PDF/Excel** | Task25 (M9-01,02) + Task26 (M9-03,04,05) + Module Testing & Bug Fix | จ.6–จ.13 ก.ค. | ✅ implemented + WP-07 pass; รอ sync ClickUp |
 | `Sprint 4: Smart warnings` | **M5 Smart Warning** | Task21 (M5-01,02) + Task22 (M5-03..06) + Module Testing & Bug Fix | อ.14–พฤ.16 ก.ค. | Open |
 | `Run internal system and integration tests` | **Integration Testing & Bug Fix** | ทดสอบบูรณาการ M11 + M6 + M9 + M5 และแก้ข้อบกพร่องก่อนปิด Phase 2 core | ศ.17 · จ.20 ก.ค. | Open |
 

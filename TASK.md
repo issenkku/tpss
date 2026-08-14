@@ -1,55 +1,55 @@
 # TASK.md
 
 ## Last Updated
-<!-- Update this date at the start or end of each AI-assisted session. -->
-2026-06-24
+2026-08-14
 
 ## Current Sprint
-<!-- Keep this to the active sprint/module only; do not record project history here. -->
-Phase 2 — `Sprint 2 — M6 Workload from Real Schedules` (dev เริ่ม ศ.26 มิ.ย. 2569 · ขณะนี้ = วางแผน scope)
+Phase 2 — `Sprint 3 — M9 Reporting`
 
 ## Current Focus
-<!-- Name the exact feature/page/file being worked on now, not a broad module. -->
-วางแผน M6 — คำนวณภาระงานอาจารย์จาก `schedules` จริง (แทน quota คงที่ใน `DashboardController::instructorWorkloadData`); ยังไม่เริ่มเขียนโค้ด รอเคาะสูตรนับชั่วโมง/ขอบเขตผ่าน grilling
+ปิด Sprint 3 M9 ในฝั่งโค้ดและหลักฐานทดสอบ; รอ sync สถานะ ClickUp เมื่อ API พ้น rate limit
 
 ## Allowed Directories
-<!-- List only paths the AI may modify for the current session. Tighten this before coding. -->
-- (planning only — ยังไม่เปิดสิทธิ์แก้โค้ดจน scope M6 เคาะเสร็จ)
-- เอกสาร: `TASK.md`, `.claude/rules/`
+- `app/Http/Controllers/Admin/`
+- `app/Services/`
+- `resources/views/admin/reports/`
+- `resources/views/components/`
+- `routes/`
+- `tests/Feature/Schedule/`
+- `tests/e2e/`
+- `.claude/rules/`
+- `composer.json`, `composer.lock`, `TASK.md`, `.gitignore`
 
 ## Scope Boundary
-<!-- Treat these as hard constraints. Move permanent rules into MEMORY.md. -->
-- ขณะนี้ทำได้เฉพาะ: อัปเดตเอกสาร (codebase + ClickUp) + บันทึกผลทดสอบ + วางแผน M6.
-- ห้ามเริ่มเขียนโค้ด M6 จนกว่าจะเคาะสูตรนับชั่วโมง + ขอบเขต group-by + แหล่งข้อมูล (published vs all).
-- Do not change Laravel, Blade, Alpine.js, MySQL, or RBAC architecture; no React/Vue/Inertia/SPA.
-- ผู้บริหาร (`executive`) + admin = read-only สำหรับตาราง; admin อ่าน/export รายงานภาระงานได้ แต่ไม่แก้ตาราง.
+- ใช้เฉพาะตาราง `approved` ของรายวิชาที่ `published` เป็นข้อมูลรายงาน
+- admin, staff และ executive ดูและส่งออกรายงานได้แบบ read-only; instructor ไม่มีสิทธิ์เข้าหน้านี้
+- ใช้ Laravel, Blade และ async filter component เดิม; ไม่เพิ่ม React/Vue/Inertia/SPA
+- PDF ต้องรองรับภาษาไทย และ Excel ต้องเป็นไฟล์ `.xlsx` จริง
+- ไม่แก้ข้อมูลตารางสอนจากหน้ารายงาน
 
 ## Active Tasks
-<!-- Keep at most 7 one-line tasks; replace this list each session. -->
-- [x] ยืนยันจาก ClickUp ว่า Sprint 1 — M11 = completed (M11-01…06 Closed).
-- [ ] อัปเดตเอกสาร codebase ให้สะท้อน M11 เสร็จ + M6 เป็นงานถัดไป (sprint-status.md, TASK.md).
-- [ ] อัปเดต ClickUp ให้เป็นปัจจุบัน (Sprint 2 → active) + บันทึกผลทดสอบ M11 ลง WP-07.
-- [ ] เคาะสูตรแปลง slot → ชั่วโมงภาระงาน (block date-range, instructor split, วันหยุด/สอบ).
-- [ ] เคาะแหล่งข้อมูล: นับเฉพาะ published/approved หรือทุกสถานะ.
-- [ ] เคาะมิติ group-by: คน / วิชา / ระดับหลักสูตร / ประเภทกิจกรรม.
-- [ ] เคาะ activity ที่ไม่นับ (`counts_toward_workload=false`) + `counts_service_only` curriculum.
+- [x] สร้างหน้ารายงานตารางสอนที่เผยแพร่แล้วสำหรับ admin/staff/executive
+- [x] เพิ่มตัวกรองปี ภาคเรียน หลักสูตร รายวิชา กลุ่ม อาจารย์ และห้องแบบไม่รีเฟรชทั้งหน้า
+- [x] ส่งออก PDF ภาษาไทยและ Excel ตามตัวกรอง
+- [x] เพิ่ม PHPUnit และ Playwright ครอบคลุมหน้า ตัวกรอง สิทธิ์ และไฟล์ส่งออก
+- [x] Task 26 (`M9-03, M9-04, M9-05`) — Room Utilization, Department Summary และชุด export สรุป
+- [x] รันทดสอบ M9 รวม (Feature 24/24 + JS 6/6 + E2E 3/3 + build ผ่าน)
+- [x] บันทึก WP-07 Feature `TR-202608140444-M9-FEATURE` (4/4)
+- [x] บันทึก WP-07 E2E `TR-202608140445-M9-E2E` (3/3)
+- [ ] อัปเดตสถานะ Sprint 3 ใน ClickUp เมื่อ API พ้น rate limit
 
 ## Definition of Done
-<!-- Make completion measurable for the current session only. -->
-- เอกสาร codebase + ClickUp สะท้อนสถานะปัจจุบัน (M11 done, M6 active) ครบ.
-- ผลทดสอบ M11 ถูกบันทึกลงถังกลาง WP-07 (ถ้าตกลงให้ทำ).
-- สูตร M6 + ขอบเขตถูกเคาะเป็นลายลักษณ์อักษรก่อนเปิดสิทธิ์เขียนโค้ด.
+- ตัวกรองรายอาจารย์และรายห้องแสดงเฉพาะตารางที่ตรงเงื่อนไขและคง query ในลิงก์ส่งออก
+- PDF/Excel เปิดได้จริงและใช้ข้อมูลเดียวกับหน้ารายงาน
+- Feature, E2E, regression และ build ผ่าน
+- commit แต่ละชุดใช้ข้อความภาษาไทยและไม่รวมไฟล์ cache/generated
 
 ## Blocked / Waiting
-<!-- Record unanswered questions or external blockers; clear this when resolved. -->
-- รอเคาะ: สูตรนับชั่วโมง block slot, instructor split, แหล่งข้อมูล (published vs all), group-by dimensions.
+- ClickUp API ติด rate limit ชั่วคราว; รอครบเวลาที่ระบบแจ้งก่อนปิดสถานะ Sprint 3 ใน ClickUp
 
-## Completed (Previous Sprint — M11, closed 23 มิ.ย.)
-<!-- Add completed items only; keep this short and prune when sprint changes. -->
-- Sprint 1 — M11 Approval Workflow: submit/resubmit, lock pending/published, executive approve/reject + reason, audit + `course_offering_approvals` + notification.
-- M11 PHPUnit (`M11ApprovalTest`) + Playwright (`m11-approval.spec.ts`) เขียว.
+## Completed
+- Sprint 2 — M6 Workload from Real Schedules ถูก merge เข้า `dev` แล้วที่ `6b660d1`
 
 ## Next Up
-<!-- Add only 2-3 backlog items; do not write implementation plans here. -->
-- `Sprint 3: Reporting module` (M9 PDF/Excel).
-- `Sprint 4: Smart warnings` (M5).
+- Task 26 — Room Utilization และ Department Summary
+- Sprint 4 — M5 Smart warnings
